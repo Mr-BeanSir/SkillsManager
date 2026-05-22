@@ -1,5 +1,11 @@
 # skills-manager
 
+## 0.2.3
+
+### Patch Changes
+
+- df7fc30: 添加 Rust 编译缓存加速 workflow 构建
+
 ## 0.2.2
 
 ### Patch Changes
