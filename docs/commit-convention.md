@@ -2,6 +2,10 @@
 
 本项目使用 [Changesets](https://github.com/changesets/changesets) 管理版本和 changelog。Commit 信息本身不强制格式，但建议使用 **emoji 前缀** 让提交历史更易读。
 
+## 重要规则
+
+**每次 commit 之前必须生成一份 changeset 文件**（除非是纯文档/注释/测试/代码风格/CI配置/内部重构）。
+
 ## Commit 信息格式
 
 ```
