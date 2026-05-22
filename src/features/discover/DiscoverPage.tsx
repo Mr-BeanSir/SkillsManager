@@ -8,6 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../i18n";
+import { message } from "../../message";
 import { readSettings } from "../settings/settingsApi";
 import styles from "./DiscoverPage.module.css";
 import {
@@ -21,7 +22,9 @@ import {
 import {
   checkRepositorySkill,
   installRepositorySkill,
-  repositoryInstallInputFromDiscoverSkill
+  isCheckAllResult,
+  repositoryInstallInputFromDiscoverSkill,
+  type RepositoryInstallProgress
 } from "./repositoryInstallApi";
 
 type DiscoverPageProps = {
@@ -43,8 +46,6 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
   const [result, setResult] = useState<DiscoverPageResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [installMessage, setInstallMessage] = useState<string | null>(null);
-  const [installError, setInstallError] = useState<string | null>(null);
   const [installingSkillId, setInstallingSkillId] = useState<string | null>(null);
   const [isRepositoryInstallOpen, setIsRepositoryInstallOpen] = useState(false);
   const [repositorySource, setRepositorySource] = useState("");
@@ -53,6 +54,7 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
   const [repositoryInstallError, setRepositoryInstallError] = useState<string | null>(null);
   const [isCheckingRepository, setIsCheckingRepository] = useState(false);
   const [isInstallingRepository, setIsInstallingRepository] = useState(false);
+  const [repositoryProgress, setRepositoryProgress] = useState<RepositoryInstallProgress | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -114,16 +116,12 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
   }, [state.entry, state.page, state.query, state.pageSize]);
 
   useEffect(() => {
-    setInstallError(null);
-    setInstallMessage(null);
-  }, [state.entry, state.page]);
-
-  useEffect(() => {
     if (!isRepositoryInstallOpen) {
       setRepositoryCheckMessage(null);
       setRepositoryInstallError(null);
       setIsCheckingRepository(false);
       setIsInstallingRepository(false);
+      setRepositoryProgress(null);
     }
   }, [isRepositoryInstallOpen]);
 
@@ -154,19 +152,18 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
 
   async function handleInstallDiscoveredSkill(skill: DiscoverSkill) {
     setInstallingSkillId(skill.id);
-    setInstallError(null);
-    setInstallMessage(null);
 
     try {
       const installed = await installRepositorySkill(repositoryInstallInputFromDiscoverSkill(skill));
-      setInstallMessage(
+      const first = installed[0];
+      message.success(
         t(catalog, language, "discover.install.success", {
-          name: installed.name,
-          source: installed.sourceRef
+          name: first.name,
+          source: first.sourceRef
         })
       );
     } catch (reason) {
-      setInstallError(errorMessage(reason));
+      message.error(errorMessage(reason));
     } finally {
       setInstallingSkillId(null);
     }
@@ -178,11 +175,20 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
     setRepositoryCheckMessage(null);
 
     try {
-      const result = await checkRepositorySkill({
+      const outcome = await checkRepositorySkill({
         source: repositorySource.trim(),
         skillName: repositorySkillName.trim()
       });
-      setRepositoryCheckMessage(`${result.skillName} · ${result.sourceRef}`);
+      if (isCheckAllResult(outcome)) {
+        setRepositoryCheckMessage(
+          t(catalog, language, "discover.install.checkAll", {
+            count: String(outcome.total),
+            names: outcome.names.join(", ")
+          })
+        );
+      } else {
+        setRepositoryCheckMessage(`${outcome.skillName} · ${outcome.sourceRef}`);
+      }
     } catch (reason) {
       setRepositoryInstallError(errorMessage(reason));
     } finally {
@@ -195,20 +201,31 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
     setIsInstallingRepository(true);
     setRepositoryInstallError(null);
     setRepositoryCheckMessage(null);
-    setInstallError(null);
-    setInstallMessage(null);
+    setRepositoryProgress(null);
 
     try {
-      const installed = await installRepositorySkill({
-        source: repositorySource.trim(),
-        skillName: repositorySkillName.trim()
-      });
-      setInstallMessage(
-        t(catalog, language, "discover.install.success", {
-          name: installed.name,
-          source: installed.sourceRef
-        })
+      const installed = await installRepositorySkill(
+        {
+          source: repositorySource.trim(),
+          skillName: repositorySkillName.trim()
+        },
+        (progress) => setRepositoryProgress(progress)
       );
+      if (installed.length === 1) {
+        message.success(
+          t(catalog, language, "discover.install.success", {
+            name: installed[0].name,
+            source: installed[0].sourceRef
+          })
+        );
+      } else {
+        message.success(
+          t(catalog, language, "discover.install.successAll", {
+            count: String(installed.length),
+            source: installed[0].sourceRef
+          })
+        );
+      }
       setIsRepositoryInstallOpen(false);
       setRepositorySource("");
       setRepositorySkillName("");
@@ -473,10 +490,11 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
                     type="text"
                     value={repositorySkillName}
                   />
+                  <p className="field-hint">{t(catalog, language, "discover.install.skillNameHint")}</p>
                 </label>
               </div>
 
-              {(repositoryInstallError || repositoryCheckMessage) ? (
+              {(repositoryInstallError || repositoryCheckMessage || repositoryProgress) ? (
                 <div className={styles.installMessages}>
                   {repositoryInstallError ? (
                     <p className="form-error" role="alert">
@@ -487,6 +505,17 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
                   {repositoryCheckMessage ? (
                     <p className="form-hint" role="status">
                       {repositoryCheckMessage}
+                    </p>
+                  ) : null}
+
+                  {repositoryProgress ? (
+                    <p className="form-progress" role="status">
+                      {repositoryProgress.message}
+                      {repositoryProgress.current && repositoryProgress.total ? (
+                        <span className={styles.progressFraction}>
+                          {" "}{repositoryProgress.current}/{repositoryProgress.total}
+                        </span>
+                      ) : null}
                     </p>
                   ) : null}
                 </div>

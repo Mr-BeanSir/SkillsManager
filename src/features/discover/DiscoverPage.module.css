@@ -44,3 +44,8 @@
   gap: 10px;
   padding-top: 6px;
 }
+
+.progressFraction {
+  font-weight: 700;
+  opacity: 0.7;
+}

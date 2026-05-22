@@ -78,6 +78,30 @@ pub struct RepositorySkillCheckResult {
     pub description: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositorySkillCheckAllResult {
+    pub source_ref: String,
+    pub total: usize,
+    pub names: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(untagged)]
+pub enum RepositoryCheckOutcome {
+    Single(RepositorySkillCheckResult),
+    All(RepositorySkillCheckAllResult),
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryInstallProgress {
+    pub stage: String,
+    pub message: String,
+    pub current: Option<usize>,
+    pub total: Option<usize>,
+}
+
 #[derive(Debug, Error)]
 pub enum RepositorySourceError {
     #[error("unsupported repository source: {0}")]
@@ -262,14 +286,56 @@ pub fn install_repository_skill_from_checkout(
     source_ref: &str,
     subpath: Option<&str>,
     skill_name: &str,
-) -> Result<InstalledSkillSnapshot, RepositorySourceError> {
+    progress: &Option<tauri::ipc::Channel<RepositoryInstallProgress>>,
+) -> Result<Vec<InstalledSkillSnapshot>, RepositorySourceError> {
     let skills = discover_repository_skills(checkout_root, subpath)?;
     if skills.is_empty() {
         return Err(RepositorySourceError::NoSkillsFound);
     }
 
+    if skill_name.trim() == "*" {
+        let total = skills.len();
+        send_progress(progress, RepositoryInstallProgress {
+            stage: "discovered".to_string(),
+            message: format!("Found {total} skills"),
+            current: None,
+            total: Some(total),
+        });
+        let mut installed = Vec::new();
+        for (index, skill) in skills.into_iter().enumerate() {
+            let current = index + 1;
+            send_progress(progress, RepositoryInstallProgress {
+                stage: "installing".to_string(),
+                message: format!("Installing {current}/{total}: {}", skill.name),
+                current: Some(current),
+                total: Some(total),
+            });
+            let snapshot = install_local_skill_snapshot(
+                connection,
+                managed_skills_root.clone(),
+                LocalSkillInstallRequest {
+                    name: skill.name,
+                    description: skill.description,
+                    source_type: source_type.to_string(),
+                    source_ref: source_ref.to_string(),
+                    skill_path: skill.skill_path,
+                    fixture_path: skill.directory_path,
+                },
+            )
+            .map_err(RepositorySourceError::Install)?;
+            installed.push(snapshot);
+        }
+        return Ok(installed);
+    }
+
     let skill = select_repository_skill(&skills, skill_name)?;
-    install_local_skill_snapshot(
+    send_progress(progress, RepositoryInstallProgress {
+        stage: "installing".to_string(),
+        message: format!("Installing: {}", skill.name),
+        current: Some(1),
+        total: Some(1),
+    });
+    let snapshot = install_local_skill_snapshot(
         connection,
         managed_skills_root,
         LocalSkillInstallRequest {
@@ -281,7 +347,8 @@ pub fn install_repository_skill_from_checkout(
             fixture_path: skill.directory_path,
         },
     )
-    .map_err(RepositorySourceError::Install)
+    .map_err(RepositorySourceError::Install)?;
+    Ok(vec![snapshot])
 }
 
 pub fn check_repository_skill_from_checkout(
@@ -289,29 +356,57 @@ pub fn check_repository_skill_from_checkout(
     source_ref: &str,
     subpath: Option<&str>,
     skill_name: &str,
-) -> Result<RepositorySkillCheckResult, RepositorySourceError> {
+) -> Result<RepositoryCheckOutcome, RepositorySourceError> {
     let skills = discover_repository_skills(checkout_root, subpath)?;
     if skills.is_empty() {
         return Err(RepositorySourceError::NoSkillsFound);
     }
 
+    if skill_name.trim() == "*" {
+        return Ok(RepositoryCheckOutcome::All(
+            RepositorySkillCheckAllResult {
+                source_ref: source_ref.to_string(),
+                total: skills.len(),
+                names: skills.into_iter().map(|s| s.name).collect(),
+            },
+        ));
+    }
+
     let selected = select_repository_skill(&skills, skill_name)?;
 
-    Ok(RepositorySkillCheckResult {
+    Ok(RepositoryCheckOutcome::Single(RepositorySkillCheckResult {
         source_ref: source_ref.to_string(),
         skill_name: selected.name,
         skill_path: selected.skill_path,
         description: selected.description,
-    })
+    }))
+}
+
+fn send_progress(channel: &Option<tauri::ipc::Channel<RepositoryInstallProgress>>, progress: RepositoryInstallProgress) {
+    if let Some(ch) = channel {
+        let _ = ch.send(progress);
+    }
 }
 
 pub fn install_repository_skill(
     connection: &Connection,
     managed_skills_root: PathBuf,
     request: RepositorySkillInstallRequest,
-) -> Result<InstalledSkillSnapshot, RepositorySourceError> {
+    progress: Option<tauri::ipc::Channel<RepositoryInstallProgress>>,
+) -> Result<Vec<InstalledSkillSnapshot>, RepositorySourceError> {
     let source = parse_repository_source(&request.source)?;
     if source.source_type == "raw_url" {
+        if request.skill_name.trim() == "*" {
+            return Err(RepositorySourceError::UnsupportedSource(
+                "wildcard * is not supported for raw SKILL.md URLs".to_string(),
+            ));
+        }
+        send_progress(&progress, RepositoryInstallProgress {
+            stage: "downloading".to_string(),
+            message: "Downloading SKILL.md…".to_string(),
+            current: None,
+            total: None,
+        });
         let checkout = TemporaryCheckout::new()?;
         let raw_entrypoint = download_raw_skill_entrypoint(&source.clone_url, checkout.path())?;
         return install_raw_skill_entrypoint_from_path(
@@ -324,6 +419,12 @@ pub fn install_repository_skill(
     }
 
     if source.source_type == "well_known" {
+        send_progress(&progress, RepositoryInstallProgress {
+            stage: "fetching".to_string(),
+            message: "Fetching skill manifest…".to_string(),
+            current: None,
+            total: None,
+        });
         let manifest_body = fetch_text_url(&source.clone_url, "application/json")?;
         return install_well_known_skill_from_manifest_body(
             connection,
@@ -334,8 +435,21 @@ pub fn install_repository_skill(
         );
     }
 
+    send_progress(&progress, RepositoryInstallProgress {
+        stage: "cloning".to_string(),
+        message: "Cloning repository…".to_string(),
+        current: None,
+        total: None,
+    });
     let checkout = TemporaryCheckout::new()?;
     clone_repository(&source, checkout.path())?;
+
+    send_progress(&progress, RepositoryInstallProgress {
+        stage: "discovering".to_string(),
+        message: "Discovering skills…".to_string(),
+        current: None,
+        total: None,
+    });
     install_repository_skill_from_checkout(
         connection,
         managed_skills_root,
@@ -344,16 +458,22 @@ pub fn install_repository_skill(
         &source.source_ref,
         source.subpath.as_deref(),
         &request.skill_name,
+        &progress,
     )
 }
 
 pub fn check_repository_skill(
     source: &str,
     skill_name: &str,
-) -> Result<RepositorySkillCheckResult, RepositorySourceError> {
+) -> Result<RepositoryCheckOutcome, RepositorySourceError> {
     let parsed = parse_repository_source(source)?;
 
     if parsed.source_type == "raw_url" {
+        if skill_name.trim() == "*" {
+            return Err(RepositorySourceError::UnsupportedSource(
+                "wildcard * is not supported for raw SKILL.md URLs".to_string(),
+            ));
+        }
         let checkout = TemporaryCheckout::new()?;
         let raw_entrypoint = download_raw_skill_entrypoint(&parsed.clone_url, checkout.path())?;
         let parent =
@@ -367,30 +487,41 @@ pub fn check_repository_skill(
             parse_skill_directory(parent, parent)?.ok_or(RepositorySourceError::NoSkillsFound)?;
         let selected = select_repository_skill(&[parsed_skill], skill_name)?;
 
-        return Ok(RepositorySkillCheckResult {
+        return Ok(RepositoryCheckOutcome::Single(RepositorySkillCheckResult {
             source_ref: parsed.source_ref,
             skill_name: selected.name,
             skill_path: selected.skill_path,
             description: selected.description,
-        });
+        }));
     }
 
     if parsed.source_type == "well_known" {
         let manifest_body = fetch_text_url(&parsed.clone_url, "application/json")?;
         let manifest: WellKnownSkillsManifest = serde_json::from_str(&manifest_body)
             .map_err(|error| RepositorySourceError::RawSkillDownloadFailed(error.to_string()))?;
+
+        if skill_name.trim() == "*" {
+            return Ok(RepositoryCheckOutcome::All(
+                RepositorySkillCheckAllResult {
+                    source_ref: parsed.source_ref,
+                    total: manifest.skills.len(),
+                    names: manifest.skills.into_iter().map(|s| s.name).collect(),
+                },
+            ));
+        }
+
         let entry = manifest
             .skills
             .into_iter()
             .find(|candidate| candidate.name.eq_ignore_ascii_case(skill_name.trim()))
             .ok_or_else(|| RepositorySourceError::SkillNotFound(skill_name.to_string()))?;
 
-        return Ok(RepositorySkillCheckResult {
+        return Ok(RepositoryCheckOutcome::Single(RepositorySkillCheckResult {
             source_ref: parsed.source_ref,
             skill_name: entry.name,
             skill_path: entry.url,
             description: String::new(),
-        });
+        }));
     }
 
     let checkout = TemporaryCheckout::new()?;
@@ -404,31 +535,38 @@ pub fn check_repository_skill(
 }
 
 #[tauri::command]
-pub fn install_repository_skill_record(
+pub async fn install_repository_skill_record(
     source: String,
     skill_name: String,
-) -> Result<InstalledSkillSnapshot, String> {
-    let database_path = crate::app_paths::database_path()
-        .map_err(|error| RepositorySourceError::AppPath(error.to_string()).to_string())?;
-    let connection = crate::db::open_database(database_path).map_err(|error| error.to_string())?;
-    let managed_skills_root = crate::app_paths::managed_skills_dir()
-        .map_err(|error| RepositorySourceError::AppPath(error.to_string()).to_string())?;
+    on_progress: tauri::ipc::Channel<RepositoryInstallProgress>,
+) -> Result<Vec<InstalledSkillSnapshot>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let database_path = crate::app_paths::database_path()
+            .map_err(|error| RepositorySourceError::AppPath(error.to_string()).to_string())?;
+        let connection =
+            crate::db::open_database(database_path).map_err(|error| error.to_string())?;
+        let managed_skills_root = crate::app_paths::managed_skills_dir()
+            .map_err(|error| RepositorySourceError::AppPath(error.to_string()).to_string())?;
 
-    let installed = install_repository_skill(
-        &connection,
-        managed_skills_root.clone(),
-        RepositorySkillInstallRequest { source, skill_name },
-    )
-    .map_err(|error| error.to_string())?;
+        let installed = install_repository_skill(
+            &connection,
+            managed_skills_root.clone(),
+            RepositorySkillInstallRequest { source, skill_name },
+            Some(on_progress),
+        )
+        .map_err(|error| error.to_string())?;
 
-    Ok(installed)
+        Ok(installed)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
 pub fn check_repository_skill_record(
     source: String,
     skill_name: String,
-) -> Result<RepositorySkillCheckResult, String> {
+) -> Result<RepositoryCheckOutcome, String> {
     check_repository_skill(&source, &skill_name).map_err(|error| error.to_string())
 }
 
@@ -691,7 +829,7 @@ pub fn install_raw_skill_entrypoint_from_path(
     entrypoint: &Path,
     source_ref: &str,
     skill_name: &str,
-) -> Result<InstalledSkillSnapshot, RepositorySourceError> {
+) -> Result<Vec<InstalledSkillSnapshot>, RepositorySourceError> {
     let skill_dir =
         entrypoint
             .parent()
@@ -707,7 +845,7 @@ pub fn install_raw_skill_entrypoint_from_path(
     };
     let selected = select_repository_skill(&[skill], skill_name)?;
 
-    install_local_skill_snapshot(
+    let snapshot = install_local_skill_snapshot(
         connection,
         managed_skills_root,
         LocalSkillInstallRequest {
@@ -719,7 +857,8 @@ pub fn install_raw_skill_entrypoint_from_path(
             fixture_path: selected.directory_path,
         },
     )
-    .map_err(RepositorySourceError::Install)
+    .map_err(RepositorySourceError::Install)?;
+    Ok(vec![snapshot])
 }
 
 pub fn install_well_known_skill_from_manifest_body(
@@ -728,9 +867,46 @@ pub fn install_well_known_skill_from_manifest_body(
     manifest_url: &str,
     manifest_body: &str,
     skill_name: &str,
-) -> Result<InstalledSkillSnapshot, RepositorySourceError> {
+) -> Result<Vec<InstalledSkillSnapshot>, RepositorySourceError> {
     let manifest: WellKnownSkillsManifest = serde_json::from_str(manifest_body)
         .map_err(|error| RepositorySourceError::RawSkillDownloadFailed(error.to_string()))?;
+
+    if skill_name.trim() == "*" {
+        let mut installed = Vec::new();
+        for entry in manifest.skills {
+            let checkout = TemporaryCheckout::new()?;
+            let entrypoint = load_skill_entrypoint_reference(&entry.url, checkout.path())?;
+            let skill_dir =
+                entrypoint
+                    .parent()
+                    .ok_or_else(|| RepositorySourceError::ReadSkillEntrypoint {
+                        path: entrypoint.clone(),
+                        source: std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "SKILL.md has no parent directory",
+                        ),
+                    })?;
+            let Some(parsed_skill) = parse_skill_directory(skill_dir, skill_dir)? else {
+                continue;
+            };
+            let snapshot = install_local_skill_snapshot(
+                connection,
+                managed_skills_root.clone(),
+                LocalSkillInstallRequest {
+                    name: parsed_skill.name,
+                    description: parsed_skill.description,
+                    source_type: "well_known".to_string(),
+                    source_ref: manifest_url.to_string(),
+                    skill_path: entry.url.replace('\\', "/"),
+                    fixture_path: parsed_skill.directory_path,
+                },
+            )
+            .map_err(RepositorySourceError::Install)?;
+            installed.push(snapshot);
+        }
+        return Ok(installed);
+    }
+
     let normalized = skill_name.trim().to_lowercase();
     let selected = manifest
         .skills
@@ -755,7 +931,7 @@ pub fn install_well_known_skill_from_manifest_body(
     };
     let selected_skill = select_repository_skill(&[parsed_skill], skill_name)?;
 
-    install_local_skill_snapshot(
+    let snapshot = install_local_skill_snapshot(
         connection,
         managed_skills_root,
         LocalSkillInstallRequest {
@@ -767,7 +943,8 @@ pub fn install_well_known_skill_from_manifest_body(
             fixture_path: selected_skill.directory_path,
         },
     )
-    .map_err(RepositorySourceError::Install)
+    .map_err(RepositorySourceError::Install)?;
+    Ok(vec![snapshot])
 }
 
 #[derive(Debug, Deserialize)]
@@ -1050,13 +1227,14 @@ mod tests {
         )
         .expect("raw skill should install");
 
-        assert_eq!(installed.name, "code-review");
-        assert_eq!(installed.source_type, "raw_url");
+        assert_eq!(installed.len(), 1);
+        assert_eq!(installed[0].name, "code-review");
+        assert_eq!(installed[0].source_type, "raw_url");
         assert_eq!(
-            installed.source_ref,
+            installed[0].source_ref,
             "https://raw.githubusercontent.com/acme/skills/main/review/SKILL.md"
         );
-        assert_eq!(installed.skill_path, "SKILL.md");
+        assert_eq!(installed[0].skill_path, "SKILL.md");
     }
 
     #[test]
@@ -1117,14 +1295,15 @@ mod tests {
         )
         .expect("well-known skill should install");
 
-        assert_eq!(installed.name, "lint-rules");
-        assert_eq!(installed.source_type, "well_known");
+        assert_eq!(installed.len(), 1);
+        assert_eq!(installed[0].name, "lint-rules");
+        assert_eq!(installed[0].source_type, "well_known");
         assert_eq!(
-            installed.source_ref,
+            installed[0].source_ref,
             "https://example.com/.well-known/skills.json"
         );
         assert_eq!(
-            installed.skill_path,
+            installed[0].skill_path,
             raw_entrypoint.display().to_string().replace('\\', "/")
         );
     }
@@ -1192,15 +1371,17 @@ mod tests {
             "vercel-labs/skills",
             None,
             "find-skills",
+            &None,
         )
         .expect("repository skill should install");
 
-        assert_eq!(installed.name, "find-skills");
-        assert_eq!(installed.source_type, "github");
-        assert_eq!(installed.source_ref, "vercel-labs/skills");
-        assert_eq!(installed.skill_path, "skills/find-skills/SKILL.md");
+        assert_eq!(installed.len(), 1);
+        assert_eq!(installed[0].name, "find-skills");
+        assert_eq!(installed[0].source_type, "github");
+        assert_eq!(installed[0].source_ref, "vercel-labs/skills");
+        assert_eq!(installed[0].skill_path, "skills/find-skills/SKILL.md");
         assert!(managed_root
-            .join(&installed.managed_dir_name)
+            .join(&installed[0].managed_dir_name)
             .join("SKILL.md")
             .is_file());
 
@@ -1209,7 +1390,7 @@ mod tests {
                 "SELECT description, source_type, source_ref, skill_path
                 FROM skills
                 WHERE id = ?1",
-                [&installed.id],
+                [&installed[0].id],
                 |row| {
                     Ok((
                         row.get::<_, String>(0)?,
@@ -1240,7 +1421,7 @@ mod tests {
             "---\nname: find-skills\ndescription: Find and install agent skills.\n---\n",
         );
 
-        let result = super::check_repository_skill_from_checkout(
+        let outcome = super::check_repository_skill_from_checkout(
             &workspace.root,
             "vercel-labs/skills",
             None,
@@ -1248,6 +1429,10 @@ mod tests {
         )
         .expect("skill should be detected");
 
+        let result = match outcome {
+            super::RepositoryCheckOutcome::Single(r) => r,
+            _ => panic!("expected single check result"),
+        };
         assert_eq!(result.source_ref, "vercel-labs/skills");
         assert_eq!(result.skill_name, "find-skills");
         assert_eq!(result.skill_path, "skills/find-skills/SKILL.md");

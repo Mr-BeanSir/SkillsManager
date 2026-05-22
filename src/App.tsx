@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { appNavItems } from "./appNav";
+import { MessageProvider } from "./message";
 import {
   type AppPageState,
   cliTargetsRoute,
@@ -341,6 +342,8 @@ export function App() {
           </div>
         </div>
       ) : null}
+
+      <MessageProvider />
     </div>
   );
 }

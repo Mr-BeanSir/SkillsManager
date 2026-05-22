@@ -185,6 +185,24 @@
   padding: 10px 11px;
 }
 
+.form-hint {
+  margin: 0;
+  color: #6b665f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.form-progress {
+  margin: 0;
+  border: 1px solid #d3e5ef;
+  border-radius: 8px;
+  background: #eef6fb;
+  color: #2e6b8a;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 10px 11px;
+}
+
 .panel-message {
   margin: 14px 18px 0;
 }
@@ -240,6 +258,12 @@
   color: #787774;
   font-size: 12px;
   font-weight: 700;
+}
+
+.field-hint {
+  color: #9b9a97;
+  font-size: 12px;
+  margin: 0;
 }
 
 .field input,

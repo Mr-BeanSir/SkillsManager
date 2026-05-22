@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 
 export type DiscoverInstallableSkill = {
   sourceRef: string;
@@ -19,12 +19,35 @@ export type RepositoryInstallInput = {
   skillName: string;
 };
 
+export type RepositoryInstallProgress = {
+  stage: string;
+  message: string;
+  current: number | null;
+  total: number | null;
+};
+
 export type RepositorySkillCheckResult = {
   sourceRef: string;
   skillName: string;
   skillPath: string;
   description: string;
 };
+
+export type RepositorySkillCheckAllResult = {
+  sourceRef: string;
+  total: number;
+  names: string[];
+};
+
+export type RepositoryCheckOutcome =
+  | RepositorySkillCheckResult
+  | RepositorySkillCheckAllResult;
+
+export function isCheckAllResult(
+  outcome: RepositoryCheckOutcome
+): outcome is RepositorySkillCheckAllResult {
+  return "total" in outcome && "names" in outcome;
+}
 
 export function repositoryInstallInputFromDiscoverSkill(
   skill: DiscoverInstallableSkill
@@ -35,14 +58,23 @@ export function repositoryInstallInputFromDiscoverSkill(
   };
 }
 
-export function installRepositorySkill(input: RepositoryInstallInput) {
+export function installRepositorySkill(
+  input: RepositoryInstallInput,
+  onProgress?: (progress: RepositoryInstallProgress) => void
+) {
   if (!isTauriRuntime()) {
     return Promise.reject(new Error("Open the Tauri app to install repository skills."));
   }
 
-  return invoke<InstalledSkillSnapshot>("install_repository_skill_record", {
+  const onProgressChannel = new Channel<RepositoryInstallProgress>();
+  if (onProgress) {
+    onProgressChannel.onmessage = onProgress;
+  }
+
+  return invoke<InstalledSkillSnapshot[]>("install_repository_skill_record", {
     source: input.source,
-    skillName: input.skillName
+    skillName: input.skillName,
+    onProgress: onProgressChannel
   });
 }
 
@@ -51,7 +83,7 @@ export function checkRepositorySkill(input: RepositoryInstallInput) {
     return Promise.reject(new Error("Open the Tauri app to check repository skills."));
   }
 
-  return invoke<RepositorySkillCheckResult>("check_repository_skill_record", {
+  return invoke<RepositoryCheckOutcome>("check_repository_skill_record", {
     source: input.source,
     skillName: input.skillName
   });

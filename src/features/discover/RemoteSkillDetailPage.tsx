@@ -2,6 +2,7 @@ import { ArrowLeft, DownloadSimple } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import type { AppPageState } from "../../appPageState";
 import { I18nCatalog, LanguageCode } from "../../i18n";
+import { message } from "../../message";
 import { SafeRemoteMarkdownPreview } from "../../shared/remote-content/SafeRemoteMarkdownPreview";
 import styles from "./RemoteSkillDetailPage.module.css";
 import {
@@ -36,8 +37,6 @@ export function RemoteSkillDetailPage({
 }: RemoteSkillDetailPageProps) {
   const [detail, setDetail] = useState<RemoteSkillDetailRecord | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [installError, setInstallError] = useState<string | null>(null);
-  const [installMessage, setInstallMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInstalling, setIsInstalling] = useState(false);
 
@@ -77,8 +76,6 @@ export function RemoteSkillDetailPage({
 
   async function handleInstall() {
     setIsInstalling(true);
-    setInstallError(null);
-    setInstallMessage(null);
 
     try {
       const installed = await installRepositorySkill(
@@ -87,9 +84,10 @@ export function RemoteSkillDetailPage({
           name: initialSkill.name
         })
       );
-      setInstallMessage(`${installed.name} installed from ${installed.sourceRef}.`);
+      const first = installed[0];
+      message.success(`${first.name} installed from ${first.sourceRef}.`);
     } catch (reason) {
-      setInstallError(errorMessage(reason));
+      message.error(errorMessage(reason));
     } finally {
       setIsInstalling(false);
     }
@@ -141,18 +139,6 @@ export function RemoteSkillDetailPage({
       {loadError ? (
         <p className="form-error panel-message" role="alert">
           {loadError}
-        </p>
-      ) : null}
-
-      {installError ? (
-        <p className="form-error panel-message" role="alert">
-          {installError}
-        </p>
-      ) : null}
-
-      {installMessage ? (
-        <p className="form-success panel-message" role="status">
-          {installMessage}
         </p>
       ) : null}
 
