@@ -227,10 +227,21 @@ pub fn install_update_and_restart(installer_path: String) -> Result<(), String> 
                 path.to_path_buf()
             };
 
+            // 获取当前可执行文件路径，用于安装后重启
+            let current_exe = std::env::current_exe()
+                .map_err(|e| format!("Failed to get current exe path: {e}"))?;
+
+            // 运行NSIS安装程序（静默模式）
             std::process::Command::new(&exe_path)
                 .arg("/S")
                 .spawn()
                 .map_err(|e| format!("Failed to launch installer: {e}"))?;
+
+            // 等待安装完成，然后重启应用
+            std::thread::sleep(std::time::Duration::from_secs(2));
+
+            // 尝试重启应用
+            let _ = std::process::Command::new(&current_exe).spawn();
 
             std::process::exit(0);
         }
