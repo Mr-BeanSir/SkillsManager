@@ -1,6 +1,7 @@
 import { Check, NotePencil, Plus, Stack, Trash } from "@phosphor-icons/react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../i18n";
+import { readSettings } from "../settings/settingsApi";
 import { findGroupById } from "./GroupsPage.model";
 import styles from "./GroupsPage.module.css";
 import {
@@ -35,7 +36,38 @@ export function GroupsPage({
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(initialGroups ? false : true);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const pendingDeleteGroup = findGroupById(groups, pendingDeleteGroupId);
+
+  const totalPages = Math.max(1, Math.ceil(groups.length / pageSize));
+  const clampedPage = Math.min(currentPage, totalPages);
+  const pageGroups = useMemo(
+    () => groups.slice((clampedPage - 1) * pageSize, clampedPage * pageSize),
+    [groups, clampedPage, pageSize]
+  );
+
+  useEffect(() => {
+    let ignore = false;
+
+    readSettings()
+      .then((settings) => {
+        if (!ignore) {
+          setPageSize(settings.discoverPageSize);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     if (initialGroups) {
@@ -201,7 +233,7 @@ export function GroupsPage({
                 </tr>
               ) : null}
 
-              {groups.map((group) => (
+              {pageGroups.map((group) => (
                 <tr key={group.id}>
                   <td>
                     <button
@@ -261,6 +293,33 @@ export function GroupsPage({
             </tbody>
           </table>
         </div>
+
+        {!isLoading && groups.length > 0 ? (
+          <div className="pagination-bar" aria-label={t(catalog, language, "groups.pagination.label")}>
+            <span>
+              {t(catalog, language, "groups.pagination.status", {
+                page: clampedPage,
+                totalPages
+              })}
+            </span>
+            <button
+              className="button button-secondary"
+              disabled={clampedPage <= 1}
+              onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}
+              type="button"
+            >
+              {t(catalog, language, "groups.pagination.previous")}
+            </button>
+            <button
+              className="button button-secondary"
+              disabled={clampedPage >= totalPages}
+              onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))}
+              type="button"
+            >
+              {t(catalog, language, "groups.pagination.next")}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {isCreateOpen ? (
