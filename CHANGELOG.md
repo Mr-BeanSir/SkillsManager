@@ -1,5 +1,12 @@
 # skills-manager
 
+## 0.2.2
+
+### Patch Changes
+
+- 2bb9b90: NSIS 安装包支持中英文语言切换，更新时显示安装界面
+- 7679d60: 更新 commit 规范文档，明确每次 commit 前必须生成 changeset
+
 ## 0.2.1
 
 ### Patch Changes
