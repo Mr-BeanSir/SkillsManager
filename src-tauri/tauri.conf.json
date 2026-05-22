@@ -25,7 +25,15 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "icon": []
+    "targets": ["nsis", "dmg", "appimage"],
+    "icon": [],
+    "windows": {
+      "nsis": {
+        "installMode": "both"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
   }
 }

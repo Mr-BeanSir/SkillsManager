@@ -17,6 +17,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      should_release: ${{ steps.version.outputs.should_release }}
     steps:
       - uses: actions/checkout@v5
 
@@ -27,7 +30,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Create Release PR or publish
+      - name: Create Release PR
         id: changesets
         uses: changesets/action@v1
         with:
@@ -37,18 +40,78 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # When the "Version Packages" PR is merged (no pending changesets),
-      # create a GitHub Release with the new version tag.
-      - name: Create GitHub Release
-        if: steps.changesets.outputs.published != 'true' && steps.changesets.outputs.hasChangesets == 'false'
+      - name: Check if release is needed
+        id: version
+        if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          if git ls-remote --tags origin "v${VERSION}" | grep -q "v${VERSION}"; then
-            echo "Tag v${VERSION} already exists, skipping release."
-            exit 0
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+          git fetch --tags
+          if git tag -l "v${VERSION}" | grep -q "v${VERSION}"; then
+            echo "Tag v${VERSION} already exists, skipping."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
           fi
-          git tag "v${VERSION}"
-          git push origin "v${VERSION}"
-          gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: release
+    if: needs.release.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            label: macos
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: linux
+    runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: matrix.label == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - run: npm ci
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ needs.release.outputs.tag }}
+          releaseName: ${{ needs.release.outputs.tag }}
+          releaseBody: ""
+          releaseDraft: false
+          prerelease: false
+          args: --target ${{ matrix.target }}

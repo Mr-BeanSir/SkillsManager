@@ -66,18 +66,18 @@ fn find_installer_asset(release: &GitHubRelease) -> Option<&GitHubAsset> {
     let arch = std::env::consts::ARCH;
 
     let suffix = match (os, arch) {
-        ("windows", _) => "_x64-setup.exe",
-        ("macos", "aarch64") => "_aarch64.app.tar.gz",
-        ("macos", _) => "_x64.app.tar.gz",
-        ("linux", "aarch64") => "_aarch64.AppImage.tar.gz",
-        ("linux", _) => "_amd64.AppImage.tar.gz",
+        ("windows", _) => ".exe",
+        ("macos", "aarch64") => "_aarch64.dmg",
+        ("macos", _) => "_x64.dmg",
+        ("linux", "aarch64") => "_aarch64.AppImage",
+        ("linux", _) => "_amd64.AppImage",
         _ => return None,
     };
 
     release
         .assets
         .iter()
-        .find(|asset| asset.name.ends_with(suffix) || asset.name.contains(suffix))
+        .find(|asset| asset.name.ends_with(suffix) && !asset.name.ends_with(".msi"))
 }
 
 #[tauri::command]
@@ -235,10 +235,66 @@ pub fn install_update_and_restart(installer_path: String) -> Result<(), String> 
             std::process::exit(0);
         }
         "macos" => {
+            // Mount DMG
+            let mount_output = std::process::Command::new("hdiutil")
+                .args(["attach", &installer_path, "-nobrowse"])
+                .output()
+                .map_err(|e| format!("Failed to mount DMG: {e}"))?;
+
+            let mount_stdout = String::from_utf8_lossy(&mount_output.stdout);
+            let volume_path = mount_stdout
+                .lines()
+                .find_map(|line| {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("/Volumes/") {
+                        trimmed.split('\t').last().map(|s| s.trim().to_string())
+                    } else {
+                        None
+                    }
+                })
+                .ok_or("Could not find mount point")?;
+
+            // Find .app bundle in volume
+            let entries = std::fs::read_dir(&volume_path)
+                .map_err(|e| format!("Failed to read volume: {e}"))?;
+
+            let app_entry = entries
+                .filter_map(|e| e.ok())
+                .find(|e| {
+                    e.path()
+                        .extension()
+                        .map_or(false, |ext| ext == "app")
+                })
+                .ok_or("No .app found in DMG")?;
+
+            let app_name = app_entry.file_name();
+            let dest = std::path::PathBuf::from("/Applications").join(&app_name);
+
+            // Remove existing installation
+            if dest.exists() {
+                let _ = std::fs::remove_dir_all(&dest);
+            }
+
+            // Copy .app to /Applications
+            let status = std::process::Command::new("cp")
+                .args(["-R", &app_entry.path().to_string_lossy(), "/Applications/"])
+                .status()
+                .map_err(|e| format!("Failed to copy app: {e}"))?;
+
+            // Unmount DMG
+            let _ = std::process::Command::new("hdiutil")
+                .args(["detach", &volume_path])
+                .status();
+
+            if !status.success() {
+                return Err("Failed to install application".to_string());
+            }
+
+            // Open the installed app
             std::process::Command::new("open")
-                .arg(path)
+                .arg(&dest)
                 .spawn()
-                .map_err(|e| format!("Failed to open installer: {e}"))?;
+                .map_err(|e| format!("Failed to open app: {e}"))?;
 
             std::process::exit(0);
         }
