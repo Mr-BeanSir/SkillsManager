@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 import {
   disable as disableAutostart,
   enable as enableAutostart,
@@ -10,6 +10,20 @@ export type SettingsRecord = {
   discoverPageSize: number;
   launchAtStartup: boolean;
   silentStart: boolean;
+};
+
+export type UpdateInfo = {
+  version: string;
+  title: string;
+  body: string;
+  download_url: string;
+  asset_name: string;
+};
+
+export type DownloadProgress = {
+  downloaded: number;
+  total: number;
+  percent: number;
 };
 
 const defaultSettings: SettingsRecord = {
@@ -70,4 +84,39 @@ export function updateSilentStartSetting(enabled: boolean) {
 
 function isTauriRuntime() {
   return "__TAURI_INTERNALS__" in globalThis;
+}
+
+export function getAppVersion(): Promise<string> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve("0.1.0");
+  }
+  return invoke<string>("get_app_version");
+}
+
+export function checkAppUpdate(): Promise<UpdateInfo | null> {
+  if (!isTauriRuntime()) {
+    return Promise.resolve(null);
+  }
+  return invoke<UpdateInfo | null>("check_app_update");
+}
+
+export function downloadAppUpdate(
+  url: string,
+  onProgress: (progress: DownloadProgress) => void
+): Promise<string> {
+  if (!isTauriRuntime()) {
+    return Promise.reject(new Error("Open the Tauri app to update."));
+  }
+
+  const onProgressChannel = new Channel<DownloadProgress>();
+  onProgressChannel.onmessage = onProgress;
+
+  return invoke<string>("download_app_update", { url, onProgress: onProgressChannel });
+}
+
+export function installUpdateAndRestart(installerPath: string): Promise<void> {
+  if (!isTauriRuntime()) {
+    return Promise.reject(new Error("Open the Tauri app to update."));
+  }
+  return invoke("install_update_and_restart", { installerPath });
 }

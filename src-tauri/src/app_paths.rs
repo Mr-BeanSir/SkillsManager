@@ -35,3 +35,12 @@ pub fn managed_skills_dir() -> Result<PathBuf, AppPathError> {
     })?;
     Ok(path)
 }
+
+pub fn locales_dir() -> Result<PathBuf, AppPathError> {
+    let path = app_data_dir()?.join("locales");
+    std::fs::create_dir_all(&path).map_err(|source| AppPathError::CreateAppData {
+        path: path.clone(),
+        source,
+    })?;
+    Ok(path)
+}

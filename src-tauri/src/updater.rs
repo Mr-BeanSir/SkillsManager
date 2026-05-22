@@ -1,0 +1,260 @@
+use serde::{Deserialize, Serialize};
+use std::io::Read;
+
+const GITHUB_REPO: &str = "Mr-BeanSir/SkillsManager";
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateInfo {
+    pub version: String,
+    pub title: String,
+    pub body: String,
+    pub download_url: String,
+    pub asset_name: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct DownloadProgress {
+    pub downloaded: u64,
+    pub total: u64,
+    pub percent: u8,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    name: Option<String>,
+    body: Option<String>,
+    assets: Vec<GitHubAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubAsset {
+    name: String,
+    browser_download_url: String,
+}
+
+fn current_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+fn parse_version(tag: &str) -> &str {
+    tag.strip_prefix('v').unwrap_or(tag)
+}
+
+fn is_newer(current: &str, remote: &str) -> bool {
+    let parse_part = |s: &str| -> Vec<u32> {
+        s.split('.').filter_map(|p| p.parse().ok()).collect()
+    };
+    let current_parts = parse_part(current);
+    let remote_parts = parse_part(remote);
+
+    for i in 0..remote_parts.len().max(current_parts.len()) {
+        let c = current_parts.get(i).copied().unwrap_or(0);
+        let r = remote_parts.get(i).copied().unwrap_or(0);
+        if r > c {
+            return true;
+        }
+        if r < c {
+            return false;
+        }
+    }
+    false
+}
+
+fn find_installer_asset(release: &GitHubRelease) -> Option<&GitHubAsset> {
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+
+    let suffix = match (os, arch) {
+        ("windows", _) => "_x64-setup.exe",
+        ("macos", "aarch64") => "_aarch64.app.tar.gz",
+        ("macos", _) => "_x64.app.tar.gz",
+        ("linux", "aarch64") => "_aarch64.AppImage.tar.gz",
+        ("linux", _) => "_amd64.AppImage.tar.gz",
+        _ => return None,
+    };
+
+    release
+        .assets
+        .iter()
+        .find(|asset| asset.name.ends_with(suffix) || asset.name.contains(suffix))
+}
+
+#[tauri::command]
+pub fn get_app_version() -> String {
+    current_version()
+}
+
+#[tauri::command]
+pub async fn check_app_update() -> Result<Option<UpdateInfo>, String> {
+    let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
+
+    let body = ureq::get(&url)
+        .set("Accept", "application/vnd.github+json")
+        .set("User-Agent", "SkillsManager")
+        .call()
+        .map_err(|e| format!("Failed to fetch release info: {e}"))?
+        .into_string()
+        .map_err(|e| format!("Failed to read response: {e}"))?;
+
+    let release: GitHubRelease =
+        serde_json::from_str(&body).map_err(|e| format!("Failed to parse release: {e}"))?;
+
+    let remote_version = parse_version(&release.tag_name);
+    let current = current_version();
+
+    if !is_newer(&current, remote_version) {
+        return Ok(None);
+    }
+
+    let asset = find_installer_asset(&release)
+        .ok_or("No compatible installer found for your platform")?;
+
+    let download_url = asset.browser_download_url.clone();
+    let asset_name = asset.name.clone();
+
+    Ok(Some(UpdateInfo {
+        version: remote_version.to_string(),
+        title: release.name.unwrap_or(release.tag_name.clone()),
+        body: release.body.unwrap_or_default(),
+        download_url,
+        asset_name,
+    }))
+}
+
+#[tauri::command]
+pub async fn download_app_update(
+    url: String,
+    on_progress: tauri::ipc::Channel<DownloadProgress>,
+) -> Result<String, String> {
+    let temp_dir = std::env::temp_dir();
+    let filename = url
+        .rsplit('/')
+        .next()
+        .unwrap_or("update-installer")
+        .to_string();
+    let file_path = temp_dir.join(&filename);
+
+    let response = ureq::get(&url)
+        .set("User-Agent", "SkillsManager")
+        .call()
+        .map_err(|e| format!("Failed to start download: {e}"))?;
+
+    let total_size: u64 = response
+        .header("Content-Length")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+
+    let mut reader = response.into_reader();
+    let mut file =
+        std::fs::File::create(&file_path).map_err(|e| format!("Failed to create file: {e}"))?;
+
+    let mut downloaded: u64 = 0;
+    let mut buffer = [0u8; 8192];
+
+    loop {
+        let bytes_read = reader
+            .read(&mut buffer)
+            .map_err(|e| format!("Download read error: {e}"))?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        std::io::Write::write_all(&mut file, &buffer[..bytes_read])
+            .map_err(|e| format!("Write error: {e}"))?;
+
+        downloaded += bytes_read as u64;
+
+        let percent = if total_size > 0 {
+            ((downloaded as f64 / total_size as f64) * 100.0) as u8
+        } else {
+            0
+        };
+
+        let _ = on_progress.send(DownloadProgress {
+            downloaded,
+            total: total_size,
+            percent,
+        });
+    }
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn install_update_and_restart(installer_path: String) -> Result<(), String> {
+    let path = std::path::Path::new(&installer_path);
+
+    if !path.exists() {
+        return Err("Installer file not found".to_string());
+    }
+
+    let os = std::env::consts::OS;
+
+    match os {
+        "windows" => {
+            let needs_unzip = installer_path.ends_with(".zip");
+            let exe_path = if needs_unzip {
+                let file = std::fs::File::open(path)
+                    .map_err(|e| format!("Failed to open zip: {e}"))?;
+                let mut archive = zip::ZipArchive::new(file)
+                    .map_err(|e| format!("Failed to read zip: {e}"))?;
+
+                let temp_dir = std::env::temp_dir().join("skills-manager-update");
+                let _ = std::fs::remove_dir_all(&temp_dir);
+                std::fs::create_dir_all(&temp_dir)
+                    .map_err(|e| format!("Failed to create temp dir: {e}"))?;
+
+                let mut exe_file = None;
+                for i in 0..archive.len() {
+                    let mut file = archive
+                        .by_index(i)
+                        .map_err(|e| format!("Failed to read zip entry: {e}"))?;
+                    let outpath = temp_dir.join(file.name());
+
+                    if file.name().ends_with(".exe") {
+                        let mut outfile = std::fs::File::create(&outpath)
+                            .map_err(|e| format!("Failed to create exe: {e}"))?;
+                        std::io::copy(&mut file, &mut outfile)
+                            .map_err(|e| format!("Failed to extract exe: {e}"))?;
+                        exe_file = Some(outpath);
+                    }
+                }
+
+                exe_file.ok_or("No .exe found in zip archive")?
+            } else {
+                path.to_path_buf()
+            };
+
+            std::process::Command::new(&exe_path)
+                .arg("/S")
+                .spawn()
+                .map_err(|e| format!("Failed to launch installer: {e}"))?;
+
+            std::process::exit(0);
+        }
+        "macos" => {
+            std::process::Command::new("open")
+                .arg(path)
+                .spawn()
+                .map_err(|e| format!("Failed to open installer: {e}"))?;
+
+            std::process::exit(0);
+        }
+        "linux" => {
+            std::process::Command::new("chmod")
+                .arg("+x")
+                .arg(path)
+                .spawn()
+                .map_err(|e| format!("Failed to set executable: {e}"))?;
+
+            std::process::Command::new(path)
+                .spawn()
+                .map_err(|e| format!("Failed to launch installer: {e}"))?;
+
+            std::process::exit(0);
+        }
+        _ => Err(format!("Unsupported platform: {os}")),
+    }
+}

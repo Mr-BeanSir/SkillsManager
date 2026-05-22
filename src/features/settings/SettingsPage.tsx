@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../i18n";
 import styles from "./SettingsPage.module.css";
 import {
@@ -7,7 +7,13 @@ import {
   updateAutoReconcileSetting,
   updateLaunchAtStartupSetting,
   updateSilentStartSetting,
-  type SettingsRecord
+  getAppVersion,
+  checkAppUpdate,
+  downloadAppUpdate,
+  installUpdateAndRestart,
+  type SettingsRecord,
+  type UpdateInfo,
+  type DownloadProgress
 } from "./settingsApi";
 
 type SettingsPageProps = {
@@ -17,6 +23,40 @@ type SettingsPageProps = {
   onLanguageChange: (language: LanguageCode) => void;
   onOpenCliTargets: () => void;
 };
+
+type NavGroup = {
+  id: string;
+  labelKey: string;
+  items: { id: string; labelKey: string }[];
+};
+
+const navGroups: NavGroup[] = [
+  {
+    id: "general",
+    labelKey: "settings.nav.general",
+    items: [
+      { id: "reconcile", labelKey: "settings.nav.reconcile" },
+      { id: "language", labelKey: "settings.nav.language" },
+      { id: "discoverPageSize", labelKey: "settings.nav.discoverPageSize" },
+      { id: "launchAtStartup", labelKey: "settings.nav.launchAtStartup" },
+      { id: "silentStart", labelKey: "settings.nav.silentStart" }
+    ]
+  },
+  {
+    id: "tools",
+    labelKey: "settings.nav.tools",
+    items: [
+      { id: "cliTargets", labelKey: "settings.nav.cliTargets" }
+    ]
+  },
+  {
+    id: "about",
+    labelKey: "settings.nav.about",
+    items: [
+      { id: "update", labelKey: "settings.nav.update" }
+    ]
+  }
+];
 
 export function SettingsPage({
   catalog,
@@ -38,6 +78,15 @@ export function SettingsPage({
   const [draftLanguage, setDraftLanguage] = useState(language);
   const [languageStatus, setLanguageStatus] = useState<string | null>(null);
   const [draftDiscoverPageSize, setDraftDiscoverPageSize] = useState("25");
+  const [activeSection, setActiveSection] = useState("reconcile");
+  const layoutRef = useRef<HTMLDivElement>(null);
+  const [appVersion, setAppVersion] = useState("");
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -69,6 +118,42 @@ export function SettingsPage({
   useEffect(() => {
     setDraftLanguage(language);
   }, [language]);
+
+  useEffect(() => {
+    getAppVersion().then(setAppVersion).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const layout = layoutRef.current;
+    if (!layout) return;
+
+    const scrollRoot = layout.closest(".workspace") ?? null;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        }
+      },
+      { root: scrollRoot, rootMargin: "-20% 0px -70% 0px" }
+    );
+
+    const sections = layout.querySelectorAll(`.${styles.section}`);
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, []);
+
+  function scrollToSection(sectionId: string) {
+    const layout = layoutRef.current;
+    if (!layout) return;
+    const section = layout.querySelector(`#${sectionId}`);
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
 
   async function handleAutoReconcileChange(enabled: boolean) {
     if (isSettingsSaving || settings.autoReconcile === enabled) {
@@ -168,6 +253,44 @@ export function SettingsPage({
     );
   }
 
+  async function handleCheckUpdate() {
+    setIsCheckingUpdate(true);
+    setUpdateError(null);
+
+    try {
+      const info = await checkAppUpdate();
+      if (info) {
+        setUpdateInfo(info);
+        setShowUpdateDialog(true);
+      } else {
+        setUpdateError(t(catalog, language, "settings.update.noUpdate"));
+      }
+    } catch (reason) {
+      setUpdateError(errorMessage(reason));
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  }
+
+  async function handleDownloadUpdate() {
+    if (!updateInfo) return;
+
+    setIsDownloading(true);
+    setDownloadProgress(null);
+    setUpdateError(null);
+
+    try {
+      const installerPath = await downloadAppUpdate(
+        updateInfo.download_url,
+        setDownloadProgress
+      );
+      await installUpdateAndRestart(installerPath);
+    } catch (reason) {
+      setUpdateError(errorMessage(reason));
+      setIsDownloading(false);
+    }
+  }
+
   return (
     <section className={`page-stack ${styles.page}`} aria-labelledby="settings-title">
       <header className="topbar page-topbar">
@@ -179,195 +302,171 @@ export function SettingsPage({
         </div>
       </header>
 
-      <section
-        className={`panel ${styles.panel} ${styles.primaryPanel}`}
-        aria-labelledby="reconcile-title"
-      >
-        <div className="panel-header">
-          <div className={styles.sectionIntro}>
-            <h2 className={styles.sectionTitle} id="reconcile-title">
-              {t(catalog, language, "settings.reconcile.title")}
-            </h2>
-            <p className={styles.sectionDescription}>
-              {t(catalog, language, "settings.reconcile.description")}
-            </p>
-          </div>
-        </div>
-
-        <div className={styles.body}>
-          {isSettingsLoading ? (
-            <p className={styles.note} role="status" aria-live="polite">
-              {t(catalog, language, "settings.reconcile.loading")}
-            </p>
-          ) : (
-            <fieldset className={styles.segmentedField}>
-              <legend>{t(catalog, language, "settings.reconcile.fieldLegend")}</legend>
-              <label>
-                <input
-                  checked={settings.autoReconcile}
-                  disabled={isSettingsSaving}
-                  name="auto-reconcile"
-                  onChange={() => void handleAutoReconcileChange(true)}
-                  type="radio"
-                  value="true"
-                />
-                <span>{t(catalog, language, "settings.reconcile.enabled")}</span>
-              </label>
-              <label>
-                <input
-                  checked={!settings.autoReconcile}
-                  disabled={isSettingsSaving}
-                  name="auto-reconcile"
-                  onChange={() => void handleAutoReconcileChange(false)}
-                  type="radio"
-                  value="false"
-                />
-                <span>{t(catalog, language, "settings.reconcile.disabled")}</span>
-              </label>
-            </fieldset>
-          )}
-
-          <p className={styles.note}>{t(catalog, language, "settings.reconcile.note")}</p>
-
-          {isSettingsSaving ? (
-            <p className={styles.note} role="status" aria-live="polite">
-              {t(catalog, language, "settings.reconcile.saving")}
-            </p>
-          ) : null}
-
-          {settingsStatus ? (
-            <p className="form-success" role="status" aria-live="polite">
-              {settingsStatus}
-            </p>
-          ) : null}
-
-          {settingsError ? (
-            <p className="form-error" role="alert" aria-live="assertive">
-              {isSettingsLoading
-                ? t(catalog, language, "settings.reconcile.loadError")
-                : settingsError}
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      <div className={styles.secondaryGrid}>
-        <section className={`panel ${styles.panel}`} aria-labelledby="language-title">
-          <div className="panel-header">
-            <div className={styles.sectionIntro}>
-              <h2 className={styles.sectionTitle} id="language-title">
-                {t(catalog, language, "settings.language.title")}
-              </h2>
-              <p className={styles.sectionDescription}>
-                {t(catalog, language, "settings.language.description")}
-              </p>
+      <div className={styles.settingsLayout} ref={layoutRef}>
+        <nav className={styles.settingsNav} aria-label={t(catalog, language, "settings.nav.label")}>
+          {navGroups.map((group) => (
+            <div key={group.id} className={styles.navGroup}>
+              <p className={styles.navGroupLabel}>{t(catalog, language, group.labelKey)}</p>
+              <div className={styles.navGroupItems}>
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    className={
+                      activeSection === item.id
+                        ? `${styles.navItem} ${styles.navItemActive}`
+                        : styles.navItem
+                    }
+                    onClick={() => scrollToSection(item.id)}
+                    type="button"
+                  >
+                    {t(catalog, language, item.labelKey)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ))}
+        </nav>
 
-          <div className={styles.body}>
-            <fieldset className={styles.segmentedField}>
-              <legend>{t(catalog, language, "settings.language.fieldLegend")}</legend>
-              <label className={`field ${styles.field}`}>
-                <span>{t(catalog, language, "settings.language.selectLabel")}</span>
-                <select
-                  name="display-language"
-                  onChange={(event) => setDraftLanguage(event.target.value)}
-                  value={draftLanguage}
+        <div className={styles.settingsContent}>
+          <section className={`panel ${styles.panel} ${styles.section}`} id="reconcile" aria-labelledby="reconcile-title">
+            <div className={styles.reconcileHeader}>
+              <div className={styles.sectionIntro}>
+                <h2 className={styles.sectionTitle} id="reconcile-title">
+                  {t(catalog, language, "settings.reconcile.title")}
+                </h2>
+                <p className={styles.sectionDescription}>
+                  {t(catalog, language, "settings.reconcile.description")}
+                </p>
+              </div>
+              {isSettingsLoading ? null : (
+                <label className={styles.switchLabel}>
+                  <input
+                    checked={settings.autoReconcile}
+                    disabled={isSettingsSaving}
+                    onChange={() => void handleAutoReconcileChange(!settings.autoReconcile)}
+                    type="checkbox"
+                    role="switch"
+                    aria-checked={settings.autoReconcile}
+                  />
+                  <span className={styles.switchTrack}>
+                    <span className={styles.switchThumb} />
+                  </span>
+                </label>
+              )}
+            </div>
+          </section>
+
+          <section className={`panel ${styles.panel} ${styles.section}`} id="language" aria-labelledby="language-title">
+            <div className="panel-header">
+              <div className={styles.sectionIntro}>
+                <h2 className={styles.sectionTitle} id="language-title">
+                  {t(catalog, language, "settings.language.title")}
+                </h2>
+                <p className={styles.sectionDescription}>
+                  {t(catalog, language, "settings.language.description")}
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.body}>
+              <fieldset className={styles.segmentedField}>
+                <legend>{t(catalog, language, "settings.language.fieldLegend")}</legend>
+                <label className={`field ${styles.field}`}>
+                  <span>{t(catalog, language, "settings.language.selectLabel")}</span>
+                  <select
+                    name="display-language"
+                    onChange={(event) => setDraftLanguage(event.target.value)}
+                    value={draftLanguage}
+                  >
+                    {catalog.languages.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </fieldset>
+              <div className={styles.actions}>
+                <button
+                  className="button button-primary"
+                  disabled={draftLanguage === language}
+                  onClick={handleLanguageApply}
+                  type="button"
                 >
-                  {catalog.languages.map((option) => (
-                    <option key={option.code} value={option.code}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  {t(catalog, language, "settings.language.apply")}
+                </button>
+              </div>
+              <p className={styles.note}>{t(catalog, language, "settings.language.note")}</p>
+              {languageStatus ? (
+                <p className="form-success" role="status" aria-live="polite">
+                  {languageStatus}
+                </p>
+              ) : null}
+              {languageError ? (
+                <p className="form-error" role="alert">
+                  {t(catalog, language, "settings.language.loadError")}
+                </p>
+              ) : null}
+            </div>
+          </section>
+
+          <section className={`panel ${styles.panel} ${styles.section}`} id="discoverPageSize" aria-labelledby="discover-page-size-title">
+            <div className="panel-header">
+              <div className={styles.sectionIntro}>
+                <h2 className={styles.sectionTitle} id="discover-page-size-title">
+                  {t(catalog, language, "settings.discoverPageSize.title")}
+                </h2>
+                <p className={styles.sectionDescription}>
+                  {t(catalog, language, "settings.discoverPageSize.description")}
+                </p>
+              </div>
+            </div>
+
+            <div className={styles.body}>
+              <label className={`field ${styles.field}`}>
+                <span>{t(catalog, language, "settings.discoverPageSize.label")}</span>
+                <input
+                  autoComplete="off"
+                  className={styles.numberInput}
+                  inputMode="numeric"
+                  name="discover-page-size"
+                  onChange={(event) => setDraftDiscoverPageSize(event.target.value)}
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={draftDiscoverPageSize}
+                />
               </label>
-            </fieldset>
-            <div className={styles.actions}>
-              <button
-                className="button button-primary"
-                disabled={draftLanguage === language}
-                onClick={handleLanguageApply}
-                type="button"
-              >
-                {t(catalog, language, "settings.language.apply")}
-              </button>
-            </div>
-            <p className={styles.note}>{t(catalog, language, "settings.language.note")}</p>
-            {languageStatus ? (
-              <p className="form-success" role="status" aria-live="polite">
-                {languageStatus}
-              </p>
-            ) : null}
-            {languageError ? (
-              <p className="form-error" role="alert">
-                {t(catalog, language, "settings.language.loadError")}
-              </p>
-            ) : null}
-          </div>
-        </section>
-
-        <section className={`panel ${styles.panel}`} aria-labelledby="discover-page-size-title">
-          <div className="panel-header">
-            <div className={styles.sectionIntro}>
-              <h2 className={styles.sectionTitle} id="discover-page-size-title">
-                {t(catalog, language, "settings.discoverPageSize.title")}
-              </h2>
-              <p className={styles.sectionDescription}>
-                {t(catalog, language, "settings.discoverPageSize.description")}
+              <div className={styles.actions}>
+                <button
+                  className="button button-primary"
+                  disabled={
+                    isSettingsSaving ||
+                    Number.parseInt(draftDiscoverPageSize, 10) === settings.discoverPageSize
+                  }
+                  onClick={() => void handleDiscoverPageSizeApply()}
+                  type="button"
+                >
+                  {t(catalog, language, "settings.discoverPageSize.apply")}
+                </button>
+              </div>
+              <p className={styles.note}>
+                {t(catalog, language, "settings.discoverPageSize.note")}
               </p>
             </div>
-          </div>
+          </section>
 
-          <div className={styles.body}>
-            <label className={`field ${styles.field}`}>
-              <span>{t(catalog, language, "settings.discoverPageSize.label")}</span>
-              <input
-                autoComplete="off"
-                className={styles.numberInput}
-                inputMode="numeric"
-                name="discover-page-size"
-                onChange={(event) => setDraftDiscoverPageSize(event.target.value)}
-                type="number"
-                min={1}
-                max={100}
-                value={draftDiscoverPageSize}
-              />
-            </label>
-            <div className={styles.actions}>
-              <button
-                className="button button-primary"
-                disabled={
-                  isSettingsSaving ||
-                  Number.parseInt(draftDiscoverPageSize, 10) === settings.discoverPageSize
-                }
-                onClick={() => void handleDiscoverPageSizeApply()}
-                type="button"
-              >
-                {t(catalog, language, "settings.discoverPageSize.apply")}
-              </button>
-            </div>
-            <p className={styles.note}>
-              {t(catalog, language, "settings.discoverPageSize.note")}
-            </p>
-          </div>
-        </section>
-
-        <section className={`panel ${styles.panel}`} aria-labelledby="startup-settings-title">
-          <div className="panel-header">
-            <div className={styles.sectionIntro}>
-              <h2 className={styles.sectionTitle} id="startup-settings-title">
-                {t(catalog, language, "settings.startup.title")}
-              </h2>
-              <p className={styles.sectionDescription}>
-                {t(catalog, language, "settings.startup.description")}
-              </p>
-            </div>
-          </div>
-
-          <div className={styles.body}>
-            <fieldset className={styles.segmentedField}>
-              <legend>{t(catalog, language, "settings.startup.fieldLegend")}</legend>
-              <label>
+          <section className={`panel ${styles.panel} ${styles.section}`} id="launchAtStartup" aria-labelledby="launch-at-startup-title">
+            <div className={styles.reconcileHeader}>
+              <div className={styles.sectionIntro}>
+                <h2 className={styles.sectionTitle} id="launch-at-startup-title">
+                  {t(catalog, language, "settings.startup.launchAtStartup.title")}
+                </h2>
+                <p className={styles.sectionDescription}>
+                  {t(catalog, language, "settings.startup.launchAtStartup.description")}
+                </p>
+              </div>
+              <label className={styles.switchLabel}>
                 <input
                   checked={settings.launchAtStartup}
                   disabled={isSettingsSaving}
@@ -380,10 +479,27 @@ export function SettingsPage({
                     )
                   }
                   type="checkbox"
+                  role="switch"
+                  aria-checked={settings.launchAtStartup}
                 />
-                <span>{t(catalog, language, "settings.startup.launchAtStartup.label")}</span>
+                <span className={styles.switchTrack}>
+                  <span className={styles.switchThumb} />
+                </span>
               </label>
-              <label>
+            </div>
+          </section>
+
+          <section className={`panel ${styles.panel} ${styles.section}`} id="silentStart" aria-labelledby="silent-start-title">
+            <div className={styles.reconcileHeader}>
+              <div className={styles.sectionIntro}>
+                <h2 className={styles.sectionTitle} id="silent-start-title">
+                  {t(catalog, language, "settings.startup.silentStart.title")}
+                </h2>
+                <p className={styles.sectionDescription}>
+                  {t(catalog, language, "settings.startup.silentStart.description")}
+                </p>
+              </div>
+              <label className={styles.switchLabel}>
                 <input
                   checked={settings.silentStart}
                   disabled={isSettingsSaving}
@@ -396,36 +512,123 @@ export function SettingsPage({
                     )
                   }
                   type="checkbox"
+                  role="switch"
+                  aria-checked={settings.silentStart}
                 />
-                <span>{t(catalog, language, "settings.startup.silentStart.label")}</span>
+                <span className={styles.switchTrack}>
+                  <span className={styles.switchThumb} />
+                </span>
               </label>
-            </fieldset>
-            <p className={styles.note}>{t(catalog, language, "settings.startup.note")}</p>
-          </div>
-        </section>
-
-        <section className={`panel ${styles.panel}`} aria-labelledby="cli-targets-settings-title">
-          <div className="panel-header">
-            <div className={styles.sectionIntro}>
-              <h2 className={styles.sectionTitle} id="cli-targets-settings-title">
-                {t(catalog, language, "settings.cliTargets.title")}
-              </h2>
-              <p className={styles.sectionDescription}>
-                {t(catalog, language, "settings.cliTargets.description")}
-              </p>
             </div>
-          </div>
+          </section>
 
-          <div className={styles.body}>
-            <div className={styles.actions}>
+          <section className={`panel ${styles.panel} ${styles.section}`} id="cliTargets" aria-labelledby="cli-targets-settings-title">
+            <div className={styles.reconcileHeader}>
+              <div className={styles.sectionIntro}>
+                <h2 className={styles.sectionTitle} id="cli-targets-settings-title">
+                  {t(catalog, language, "settings.cliTargets.title")}
+                </h2>
+                <p className={styles.sectionDescription}>
+                  {t(catalog, language, "settings.cliTargets.description")}
+                </p>
+              </div>
               <button className="button button-primary" onClick={onOpenCliTargets} type="button">
                 {t(catalog, language, "settings.cliTargets.open")}
               </button>
             </div>
-            <p className={styles.note}>{t(catalog, language, "settings.cliTargets.note")}</p>
-          </div>
-        </section>
+          </section>
+
+          <section className={`panel ${styles.panel} ${styles.section}`} id="update" aria-labelledby="update-settings-title">
+            <div className={styles.reconcileHeader}>
+              <div className={styles.sectionIntro}>
+                <h2 className={styles.sectionTitle} id="update-settings-title">
+                  {t(catalog, language, "settings.update.title")}
+                </h2>
+                <p className={styles.sectionDescription}>
+                  {t(catalog, language, "settings.update.description")}
+                </p>
+              </div>
+              <div className={styles.versionRow}>
+                <span className={styles.versionLabel}>{t(catalog, language, "settings.update.currentVersion")}</span>
+                <span className={styles.versionValue}>v{appVersion}</span>
+                <button
+                  className="button button-primary"
+                  disabled={isCheckingUpdate}
+                  onClick={() => void handleCheckUpdate()}
+                  type="button"
+                >
+                  {isCheckingUpdate
+                    ? t(catalog, language, "settings.update.checking")
+                    : t(catalog, language, "settings.update.checkButton")}
+                </button>
+              </div>
+            </div>
+            {updateError ? (
+              <p className={`form-error ${styles.body}`} role="alert" aria-live="assertive">
+                {updateError}
+              </p>
+            ) : null}
+          </section>
+        </div>
       </div>
+
+      {showUpdateDialog && updateInfo ? (
+        <div className="modal-backdrop" onClick={() => { if (!isDownloading) setShowUpdateDialog(false); }}>
+          <div
+            aria-labelledby="update-dialog-title"
+            aria-modal="true"
+            className="modal-panel"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="panel-header">
+              <div>
+                <h2 id="update-dialog-title">
+                  {t(catalog, language, "settings.update.dialogTitle", { version: updateInfo.version })}
+                </h2>
+              </div>
+            </div>
+            <div className={styles.updateDialogBody}>
+              <div className={styles.updateReleaseBody}>
+                {updateInfo.body || t(catalog, language, "settings.update.noReleaseNotes")}
+              </div>
+
+              {isDownloading && downloadProgress ? (
+                <div className={styles.progressBar}>
+                  <div
+                    className={styles.progressFill}
+                    style={{ width: `${downloadProgress.percent}%` }}
+                  />
+                  <span className={styles.progressLabel}>
+                    {downloadProgress.percent}%
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            <div className="modal-actions modal-actions-pad">
+              <button
+                className="button button-secondary"
+                disabled={isDownloading}
+                onClick={() => setShowUpdateDialog(false)}
+                type="button"
+              >
+                {t(catalog, language, "settings.update.cancel")}
+              </button>
+              <button
+                className="button button-primary"
+                disabled={isDownloading}
+                onClick={() => void handleDownloadUpdate()}
+                type="button"
+              >
+                {isDownloading
+                  ? t(catalog, language, "settings.update.downloading")
+                  : t(catalog, language, "settings.update.installButton")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </section>
   );
 }
