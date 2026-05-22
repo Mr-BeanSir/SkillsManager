@@ -90,11 +90,17 @@ pub fn parse_search_response(
 ) -> Result<RemoteDiscoverPageResult, RemoteDiscoveryError> {
     let response: SearchResponse = serde_json::from_str(body)
         .map_err(|error| RemoteDiscoveryError::InvalidJson(error.to_string()))?;
-    let items = response
-        .skills
-        .into_iter()
-        .map(remote_skill_from_wire)
-        .collect::<Vec<_>>();
+
+    let items = match response.skills {
+        Some(serde_json::Value::Array(arr)) => {
+            arr.into_iter()
+                .filter_map(|value| serde_json::from_value::<WireSkill>(value).ok())
+                .map(remote_skill_from_wire)
+                .collect::<Vec<_>>()
+        }
+        _ => Vec::new(),
+    };
+
     let page_size = state.page_size.unwrap_or(DEFAULT_DISCOVER_PAGE_SIZE).max(1);
     let total_items = response.count.unwrap_or(items.len() as u32);
     let total_pages = total_pages(total_items, page_size);
@@ -123,11 +129,24 @@ pub fn parse_embedded_page_response(
     body: &str,
 ) -> Result<RemoteDiscoverPageResult, RemoteDiscoveryError> {
     let skills_json = extract_embedded_skills_json(body)?;
-    let skills = serde_json::from_str::<Vec<WireSkill>>(&skills_json)
+    let skills_value: serde_json::Value = serde_json::from_str(&skills_json)
         .map_err(|error| RemoteDiscoveryError::InvalidJson(error.to_string()))?;
 
-    let total_items = embedded_u32(body, "\\\"totalSkills\\\":").unwrap_or(skills.len() as u32);
-    let view = embedded_string(body, "\\\"view\\\":").unwrap_or_else(|| state.entry.clone());
+    let skills: Vec<WireSkill> = match skills_value {
+        serde_json::Value::Array(arr) => {
+            arr.into_iter()
+                .filter_map(|value| serde_json::from_value::<WireSkill>(value).ok())
+                .collect()
+        }
+        _ => Vec::new(),
+    };
+
+    let total_items = embedded_u32(body, "\\\"totalSkills\\\":")
+        .or_else(|| embedded_u32(body, "\"totalSkills\":"))
+        .unwrap_or(skills.len() as u32);
+    let view = embedded_string(body, "\\\"view\\\":")
+        .or_else(|| embedded_string(body, "\"view\":"))
+        .unwrap_or_else(|| state.entry.clone());
     let page_size = state.page_size.unwrap_or(DEFAULT_DISCOVER_PAGE_SIZE).max(1);
     let total_pages = total_pages(total_items, page_size);
     let page = clamp_page(state.page, total_pages);
@@ -151,6 +170,20 @@ pub fn parse_embedded_page_response(
 }
 
 fn extract_embedded_skills_json(body: &str) -> Result<String, RemoteDiscoveryError> {
+    if let Some(marker_index) = body.find("\\\"initialSkills\\\":[") {
+        let array_start = marker_index + "\\\"initialSkills\\\":".len();
+        let array_end =
+            find_json_array_end(body, array_start).ok_or(RemoteDiscoveryError::MissingSkills)?;
+        return Ok(unescape_next_payload(&body[array_start..array_end]));
+    }
+
+    if let Some(marker_index) = body.find("\"initialSkills\":[") {
+        let array_start = marker_index + "\"initialSkills\":".len();
+        let array_end =
+            find_json_array_end(body, array_start).ok_or(RemoteDiscoveryError::MissingSkills)?;
+        return Ok(body[array_start..array_end].to_string());
+    }
+
     if let Some(marker_index) = body.find("\\\"skills\\\":[") {
         let array_start = marker_index + "\\\"skills\\\":".len();
         let array_end =
@@ -241,7 +274,7 @@ pub async fn get_remote_skill_detail_record(
 #[derive(Debug, Deserialize)]
 struct SearchResponse {
     query: Option<String>,
-    skills: Vec<WireSkill>,
+    skills: Option<serde_json::Value>,
     count: Option<u32>,
 }
 
@@ -370,8 +403,12 @@ fn embedded_u32(body: &str, marker: &str) -> Option<u32> {
 
 fn embedded_string(body: &str, marker: &str) -> Option<String> {
     let start = body.find(marker)? + marker.len();
-    let quoted = body[start..].strip_prefix("\\\"")?;
-    let end = quoted.find("\\\"")?;
+    let quoted = body[start..]
+        .strip_prefix("\\\"")
+        .or_else(|| body[start..].strip_prefix('"'))?;
+    let end = quoted
+        .find("\\\"")
+        .or_else(|| quoted.find('"'))?;
     Some(quoted[..end].to_string())
 }
 
@@ -612,6 +649,42 @@ mod tests {
         assert_eq!(page.items[0].source_ref, "jimliu/baoyu-skills");
         assert_eq!(page.items[0].skill_path, "baoyu-url-to-markdown");
         assert_eq!(page.items[1].skill_path, "gsap-scrolltrigger");
+    }
+
+    #[test]
+    fn maps_rsc_all_page_initial_skills_shape() {
+        let body = r#"1:"$Sreact.fragment"
+0:{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"initialSkills":[{"source":"vercel-labs/skills","skillId":"find-skills","name":"find-skills","installs":1533534,"weeklyInstalls":[108424,100113],"isOfficial":true},{"source":"nuxt/ui","skillId":"nuxt-ui","name":"nuxt-ui","installs":11658,"weeklyInstalls":[751,2413],"isOfficial":true}],"totalSkills":9768,"allTimeTotal":407368,"view":"all-time"}],["$L3","$L4"],"$L5"]}],"isPartial":false}
+3:["$","script","script-0",{"src":"/_next/static/chunks/example.js","async":true}]"#;
+
+        let page = parse_embedded_page_response(&state("all", "", 1), body)
+            .expect("rsc page response should parse");
+
+        assert_eq!(page.entry, "all");
+        assert_eq!(page.total_items, 9768);
+        assert_eq!(page.total_pages, 391);
+        assert_eq!(page.items.len(), 2);
+        assert_eq!(page.items[0].source_ref, "vercel-labs/skills");
+        assert_eq!(page.items[0].skill_path, "find-skills");
+        assert_eq!(page.items[1].source_ref, "nuxt/ui");
+        assert_eq!(page.items[1].skill_path, "nuxt-ui");
+        assert_eq!(page.items[1].installs, 11658);
+        assert!(page.items[1].is_official);
+    }
+
+    #[test]
+    fn maps_html_wrapped_rsc_initial_skills_shape() {
+        let body = r#"<script>self.__next_f.push([1,"0:{\"P\":null}\n48:[\"$\",\"$L2\",null,{\"initialSkills\":[{\"source\":\"vercel-labs/skills\",\"skillId\":\"find-skills\",\"name\":\"find-skills\",\"installs\":1533534,\"weeklyInstalls\":[108424,100113],\"isOfficial\":true},{\"source\":\"nuxt/ui\",\"skillId\":\"nuxt-ui\",\"name\":\"nuxt-ui\",\"installs\":11658,\"weeklyInstalls\":[751,2413],\"isOfficial\":true}],\"totalSkills\":9768,\"allTimeTotal\":407368,\"view\":\"all-time\"}]\n"])</script>"#;
+
+        let page = parse_embedded_page_response(&state("all", "", 1), body)
+            .expect("html-wrapped rsc page response should parse");
+
+        assert_eq!(page.entry, "all");
+        assert_eq!(page.total_items, 9768);
+        assert_eq!(page.total_pages, 391);
+        assert_eq!(page.items.len(), 2);
+        assert_eq!(page.items[0].skill_path, "find-skills");
+        assert_eq!(page.items[1].skill_path, "nuxt-ui");
     }
 
     #[test]

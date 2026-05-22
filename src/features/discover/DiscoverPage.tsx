@@ -3,6 +3,7 @@ import {
   Eye,
   MagnifyingGlass,
   Package,
+  Plus,
   TrendUp,
 } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useState } from "react";
@@ -18,6 +19,7 @@ import {
   type DiscoverSkill
 } from "./discoverApi";
 import {
+  checkRepositorySkill,
   installRepositorySkill,
   repositoryInstallInputFromDiscoverSkill
 } from "./repositoryInstallApi";
@@ -44,6 +46,13 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
   const [installMessage, setInstallMessage] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
   const [installingSkillId, setInstallingSkillId] = useState<string | null>(null);
+  const [isRepositoryInstallOpen, setIsRepositoryInstallOpen] = useState(false);
+  const [repositorySource, setRepositorySource] = useState("");
+  const [repositorySkillName, setRepositorySkillName] = useState("");
+  const [repositoryCheckMessage, setRepositoryCheckMessage] = useState<string | null>(null);
+  const [repositoryInstallError, setRepositoryInstallError] = useState<string | null>(null);
+  const [isCheckingRepository, setIsCheckingRepository] = useState(false);
+  const [isInstallingRepository, setIsInstallingRepository] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -109,6 +118,15 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
     setInstallMessage(null);
   }, [state.entry, state.page]);
 
+  useEffect(() => {
+    if (!isRepositoryInstallOpen) {
+      setRepositoryCheckMessage(null);
+      setRepositoryInstallError(null);
+      setIsCheckingRepository(false);
+      setIsInstallingRepository(false);
+    }
+  }, [isRepositoryInstallOpen]);
+
   function handleEntryChange(entry: DiscoverEntry) {
     setState((current) => ({
       ...current,
@@ -154,6 +172,53 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
     }
   }
 
+  async function handleCheckRepositoryInstall() {
+    setIsCheckingRepository(true);
+    setRepositoryInstallError(null);
+    setRepositoryCheckMessage(null);
+
+    try {
+      const result = await checkRepositorySkill({
+        source: repositorySource.trim(),
+        skillName: repositorySkillName.trim()
+      });
+      setRepositoryCheckMessage(`${result.skillName} · ${result.sourceRef}`);
+    } catch (reason) {
+      setRepositoryInstallError(errorMessage(reason));
+    } finally {
+      setIsCheckingRepository(false);
+    }
+  }
+
+  async function handleRepositoryInstall(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsInstallingRepository(true);
+    setRepositoryInstallError(null);
+    setRepositoryCheckMessage(null);
+    setInstallError(null);
+    setInstallMessage(null);
+
+    try {
+      const installed = await installRepositorySkill({
+        source: repositorySource.trim(),
+        skillName: repositorySkillName.trim()
+      });
+      setInstallMessage(
+        t(catalog, language, "discover.install.success", {
+          name: installed.name,
+          source: installed.sourceRef
+        })
+      );
+      setIsRepositoryInstallOpen(false);
+      setRepositorySource("");
+      setRepositorySkillName("");
+    } catch (reason) {
+      setRepositoryInstallError(errorMessage(reason));
+    } finally {
+      setIsInstallingRepository(false);
+    }
+  }
+
   const page = result?.page ?? state.page;
   const totalPages = result?.totalPages ?? 1;
 
@@ -174,6 +239,14 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
             </h2>
             <p>{t(catalog, language, "discover.controls.description")}</p>
           </div>
+          <button
+            className="button button-primary"
+            onClick={() => setIsRepositoryInstallOpen(true)}
+            type="button"
+          >
+            <Plus size={16} weight="bold" aria-hidden="true" />
+            {t(catalog, language, "discover.install.title")}
+          </button>
         </div>
 
         <div className={styles.controlBody}>
@@ -351,6 +424,109 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
           </button>
         </div>
       </section>
+
+      {isRepositoryInstallOpen ? (
+        <div className="modal-backdrop" onClick={() => setIsRepositoryInstallOpen(false)}>
+          <section
+            aria-labelledby="discover-install-dialog-title"
+            aria-modal="true"
+            className="modal-panel modal-panel-compact"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="panel-header">
+              <div>
+                <h2 id="discover-install-dialog-title">
+                  {t(catalog, language, "discover.install.title")}
+                </h2>
+                <p>{t(catalog, language, "discover.install.description")}</p>
+              </div>
+              <button
+                aria-label={t(catalog, language, "discover.install.close")}
+                className="icon-button"
+                onClick={() => setIsRepositoryInstallOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            <form className={styles.installForm} onSubmit={handleRepositoryInstall}>
+              <div className={styles.installFields}>
+                <label className="field">
+                  <span>{t(catalog, language, "discover.install.source")}</span>
+                  <input
+                    name="repository-source"
+                    onChange={(event) => setRepositorySource(event.target.value)}
+                    placeholder={t(catalog, language, "discover.install.sourcePlaceholder")}
+                    type="text"
+                    value={repositorySource}
+                  />
+                </label>
+
+                <label className="field">
+                  <span>{t(catalog, language, "discover.install.skillName")}</span>
+                  <input
+                    name="repository-skill-name"
+                    onChange={(event) => setRepositorySkillName(event.target.value)}
+                    placeholder={t(catalog, language, "discover.install.skillNamePlaceholder")}
+                    type="text"
+                    value={repositorySkillName}
+                  />
+                </label>
+              </div>
+
+              {(repositoryInstallError || repositoryCheckMessage) ? (
+                <div className={styles.installMessages}>
+                  {repositoryInstallError ? (
+                    <p className="form-error" role="alert">
+                      {repositoryInstallError}
+                    </p>
+                  ) : null}
+
+                  {repositoryCheckMessage ? (
+                    <p className="form-hint" role="status">
+                      {repositoryCheckMessage}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className={styles.installActions}>
+                <button
+                  className="button button-secondary"
+                  disabled={
+                    isCheckingRepository ||
+                    isInstallingRepository ||
+                    repositorySource.trim().length === 0 ||
+                    repositorySkillName.trim().length === 0
+                  }
+                  onClick={() => void handleCheckRepositoryInstall()}
+                  type="button"
+                >
+                  {isCheckingRepository
+                    ? t(catalog, language, "discover.install.checking")
+                    : t(catalog, language, "discover.install.check")}
+                </button>
+                <button
+                  className="button button-primary"
+                  disabled={
+                    isCheckingRepository ||
+                    isInstallingRepository ||
+                    repositorySource.trim().length === 0 ||
+                    repositorySkillName.trim().length === 0
+                  }
+                  type="submit"
+                >
+                  {isInstallingRepository
+                    ? t(catalog, language, "discover.install.installing")
+                    : t(catalog, language, "discover.install.submit")}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

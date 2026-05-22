@@ -21,3 +21,26 @@
   justify-content: flex-end;
   gap: 10px;
 }
+
+.installForm {
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.installFields {
+  display: grid;
+  gap: 12px;
+}
+
+.installMessages {
+  display: grid;
+  gap: 8px;
+}
+
+.installActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 6px;
+}
