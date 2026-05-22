@@ -4,8 +4,9 @@ import {
   MagnifyingGlass,
   Package
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../i18n";
+import { readSettings } from "../settings/settingsApi";
 import {
   checkInstalledSkillUpdates,
   listInstalledSkills,
@@ -16,7 +17,7 @@ import {
   type SkillUpdateRepositoryErrorRecord,
   type SkillUpdateStatusRecord
 } from "./skillsApi";
-import { buildSkillsSummary, filterInstalledSkills } from "./skillsPageModel";
+import { buildSkillsPage, buildSkillsSummary, filterInstalledSkills } from "./skillsPageModel";
 import {
   buildInitialUpdateRuntimeState,
   buildUpdateRuntimeView,
@@ -42,6 +43,24 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
   const [updateState, setUpdateState] = useState<SkillUpdateRuntimeState>(
     buildInitialUpdateRuntimeState()
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  useEffect(() => {
+    let ignore = false;
+
+    readSettings()
+      .then((settings) => {
+        if (!ignore) {
+          setPageSize(settings.discoverPageSize);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -70,6 +89,10 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
   }, []);
 
   const filteredSkills = filterInstalledSkills(skills, query);
+  const page = useMemo(
+    () => buildSkillsPage(filteredSkills, currentPage, pageSize),
+    [filteredSkills, currentPage, pageSize]
+  );
   const summary = buildSkillsSummary(skills);
   const updateRuntimeView = buildUpdateRuntimeView(skills, updateState);
 
@@ -161,7 +184,7 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
             <input
               autoComplete="off"
               name="skill-search"
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => { setQuery(event.target.value); setCurrentPage(1); }}
               placeholder={t(catalog, language, "skills.searchPlaceholder")}
               type="search"
               value={query}
@@ -257,7 +280,7 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
                 </tr>
               ) : null}
 
-              {filteredSkills.map((skill) => {
+              {page.items.map((skill) => {
                 const rowState = updateRuntimeView.rows.find((row) => row.id === skill.id);
 
                 return (
@@ -360,6 +383,33 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
             </tbody>
           </table>
         </div>
+
+        {!isLoading && page.filteredCount > 0 ? (
+          <div className="pagination-bar" aria-label={t(catalog, language, "skills.pagination.label")}>
+            <span>
+              {t(catalog, language, "skills.pagination.status", {
+                page: page.currentPage,
+                totalPages: page.totalPages
+              })}
+            </span>
+            <button
+              className="button button-secondary"
+              disabled={page.currentPage <= 1}
+              onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}
+              type="button"
+            >
+              {t(catalog, language, "skills.pagination.previous")}
+            </button>
+            <button
+              className="button button-secondary"
+              disabled={page.currentPage >= page.totalPages}
+              onClick={() => setCurrentPage((value) => Math.min(page.totalPages, value + 1))}
+              type="button"
+            >
+              {t(catalog, language, "skills.pagination.next")}
+            </button>
+          </div>
+        ) : null}
       </section>
     </section>
   );
