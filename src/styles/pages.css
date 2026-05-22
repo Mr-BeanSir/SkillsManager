@@ -1,0 +1,86 @@
+.tab-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #fbfbfa;
+  padding: 4px;
+}
+
+.tab-button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #787774;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 11px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 120ms ease;
+}
+
+.tab-button[aria-pressed="true"] {
+  border-color: #d7d7d4;
+}
+
+.tab-button:hover,
+.tab-button-active {
+  border-color: #eaeaea;
+  background: #ffffff;
+  color: #111111;
+}
+
+.tab-button:active {
+  transform: scale(0.98);
+}
+
+.compact-list {
+  display: grid;
+  min-width: 0;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.compact-list-embedded {
+  border: 0;
+  border-radius: 0;
+}
+
+.compact-list-row {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border-bottom: 1px solid #eaeaea;
+  padding: 10px 12px;
+}
+
+.compact-list-row-action {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.compact-list-row:last-child {
+  border-bottom: 0;
+}
+
+.compact-list-row strong {
+  max-width: 100%;
+  overflow: hidden;
+  color: #111111;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-list-row .path-cell,
+.compact-list-row .table-secondary {
+  max-width: 100%;
+  padding: 0;
+}

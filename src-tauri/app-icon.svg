@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Skills Manager icon">
+  <rect width="1024" height="1024" rx="208" fill="#f7f6f3"/>
+  <rect x="96" y="96" width="832" height="832" rx="160" fill="#ffffff" stroke="#d8d5cf" stroke-width="28"/>
+  <path d="M304 336h416M304 512h416M304 688h416" fill="none" stroke="#151515" stroke-width="60" stroke-linecap="round"/>
+  <circle cx="304" cy="336" r="58" fill="#edf3ec" stroke="#151515" stroke-width="28"/>
+  <circle cx="720" cy="512" r="58" fill="#e1f3fe" stroke="#151515" stroke-width="28"/>
+  <circle cx="304" cy="688" r="58" fill="#fbf3db" stroke="#151515" stroke-width="28"/>
+</svg>

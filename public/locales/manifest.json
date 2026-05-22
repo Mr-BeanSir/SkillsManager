@@ -1,0 +1,17 @@
+{
+  "defaultLanguage": "en",
+  "languages": [
+    {
+      "code": "en",
+      "label": "English",
+      "htmlLang": "en",
+      "path": "en.json"
+    },
+    {
+      "code": "zh",
+      "label": "中文",
+      "htmlLang": "zh-CN",
+      "path": "zh.json"
+    }
+  ]
+}

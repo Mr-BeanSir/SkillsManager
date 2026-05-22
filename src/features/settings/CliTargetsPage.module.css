@@ -1,0 +1,28 @@
+.layout {
+  display: grid;
+  gap: 18px;
+}
+
+.detailCopy {
+  margin: 8px 0 0;
+  color: #787774;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.modalForm {
+  display: grid;
+  gap: 14px;
+}
+
+.builtInText {
+  color: #787774;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

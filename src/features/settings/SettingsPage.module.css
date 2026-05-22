@@ -1,0 +1,156 @@
+.page {
+  gap: 24px;
+}
+
+.pageHeader {
+  display: grid;
+  gap: 8px;
+  max-width: 62ch;
+}
+
+.pageTitle {
+  max-width: 16ch;
+  letter-spacing: -0.025em;
+}
+
+.panel {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+
+.primaryPanel {
+  max-width: 960px;
+}
+
+.sectionIntro {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  max-width: 62ch;
+}
+
+.sectionTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.sectionDescription {
+  margin: 0;
+  color: #5f5a52;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.secondaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.body {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.segmentedField {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.segmentedField legend {
+  color: #6b665f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  margin-bottom: 4px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.segmentedField label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  min-width: 180px;
+  max-width: 100%;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  padding: 12px 14px;
+}
+
+.segmentedField input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #111111;
+}
+
+.segmentedField span {
+  color: #111111;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
+
+.field :global(span) {
+  color: #6b665f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.field :global(input),
+.field :global(select) {
+  color: #1f1d1a;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.numberInput {
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  margin: 0;
+  max-width: 62ch;
+  color: #6b665f;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+@media (max-width: 1100px) {
+  .secondaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .primaryPanel {
+    max-width: none;
+  }
+}

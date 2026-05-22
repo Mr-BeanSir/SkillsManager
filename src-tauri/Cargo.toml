@@ -1,0 +1,27 @@
+[package]
+name = "skills-manager"
+version = "0.1.0"
+description = "A desktop manager for local agent skills"
+authors = ["Skills Manager Contributors"]
+edition = "2021"
+
+[lib]
+name = "skills_manager_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "5"
+rusqlite = { version = "0.32", features = ["bundled"] }
+thiserror = "2"
+ureq = { version = "2", features = ["tls"] }
+html2text = "0.12"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-autostart = "2"

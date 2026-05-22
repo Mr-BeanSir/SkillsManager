@@ -1,0 +1,234 @@
+.detailEyebrow {
+  margin-top: 14px;
+}
+
+.detailCopy {
+  margin: 10px 0 0;
+  color: #787774;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.detailActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.detailDataList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+  padding: 18px;
+}
+
+.detailDataListSingle {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 18px;
+}
+
+.detailDataList div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.detailDataList dt,
+.detailDataList dd {
+  margin: 0;
+}
+
+.detailDataList dt {
+  color: #787774;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.detailDataList dd {
+  color: #111111;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.detailPathInline {
+  word-break: break-word;
+  font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
+.summaryGrid,
+.workspaceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.summaryGridSeparated {
+  grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
+}
+
+.workspaceGridSeparated {
+  grid-template-columns: minmax(260px, 0.3fr) minmax(0, 0.7fr);
+  align-items: start;
+}
+
+.splitHeader,
+.splitBody {
+  display: grid;
+  align-items: start;
+  min-width: 0;
+}
+
+.splitHeader3070,
+.splitBody3070 {
+  grid-template-columns: minmax(0, 3fr) auto minmax(0, 7fr);
+}
+
+.splitHeader {
+  border-bottom: 1px solid #eaeaea;
+  gap: 0;
+}
+
+.splitBody {
+  gap: 0;
+}
+
+.splitHeaderCopy,
+.splitColumn {
+  min-width: 0;
+}
+
+.splitHeaderCopy {
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+}
+
+.splitHeaderTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.splitHeaderCopy h2,
+.splitHeaderCopy p {
+  margin: 0;
+}
+
+.splitHeaderActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.splitDivider {
+  align-self: stretch;
+  width: 1px;
+  min-height: 100%;
+  background: #eaeaea;
+}
+
+.splitColumnPrimary,
+.splitColumnSecondary {
+  min-width: 0;
+}
+
+.projectEmptyState {
+  width: 100%;
+  min-width: 0;
+  justify-items: center;
+}
+
+.fileList {
+  display: grid;
+  padding: 10px 0;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #2f3437;
+  cursor: pointer;
+  padding: 8px 16px;
+  text-align: left;
+}
+
+.fileRow span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileRow:hover,
+.fileRowSelected {
+  background: #f7f6f3;
+}
+
+.fileRowDirectory {
+  color: #111111;
+  font-weight: 700;
+}
+
+.editorShell {
+  padding: 18px;
+}
+
+.editorHeader {
+  align-items: center;
+}
+
+.editorHeaderActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.editor {
+  width: 100%;
+  min-height: 480px;
+  resize: vertical;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #fbfbfa;
+  color: #111111;
+  font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px;
+}
+
+.editorEmpty {
+  display: grid;
+  gap: 6px;
+  padding: 28px 18px;
+}
+
+.editorEmpty strong,
+.editorEmpty p {
+  margin: 0;
+}
+
+.editorEmpty p {
+  color: #787774;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1280px) {
+  .summaryGrid,
+  .workspaceGrid,
+  .summaryGridSeparated,
+  .workspaceGridSeparated {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

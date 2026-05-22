@@ -1,0 +1,248 @@
+.detailEyebrow {
+  margin-top: 14px;
+}
+
+.detailCopy {
+  margin: 10px 0 0;
+  color: #787774;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.detailActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.summaryLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(280px, 3fr);
+  gap: 18px;
+}
+
+.summaryBody {
+  padding: 18px;
+}
+
+.summaryCopy {
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+  padding-right: 8px;
+  margin: 0;
+  color: #2f3437;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.summaryLine {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+}
+
+.summaryBullet {
+  flex: 0 0 auto;
+  color: #787774;
+  line-height: 1.6;
+}
+
+.statsPanelBody {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.statsHighlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding-bottom: 2px;
+}
+
+.statsMetric {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.statsMetric + .statsMetric {
+  border-left: 1px solid #eaeaea;
+  padding-left: 16px;
+}
+
+.statsMetric:first-child {
+  padding-right: 16px;
+}
+
+.statsMetricLabel {
+  color: #787774;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.statsMetricValue {
+  color: #111111;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.statsMetaList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.statsMetaRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  border-top: 1px solid #eaeaea;
+  border-bottom: 1px solid #eaeaea;
+  padding: 12px 0;
+}
+
+.statsMetaRow dt,
+.statsMetaRow dd {
+  margin: 0;
+}
+
+.statsMetaRow dt {
+  color: #787774;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.statsMetaRow dd {
+  color: #111111;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.statsAuditSection {
+  display: grid;
+  gap: 12px;
+}
+
+.statsAuditHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.statsAuditTitle {
+  margin: 0;
+  color: #111111;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.statsAuditCount {
+  color: #787774;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.securityAuditList {
+  display: grid;
+  gap: 8px;
+}
+
+.securityAuditRow {
+  display: flex !important;
+  align-items: start;
+  flex-direction: row;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0 0 5px;
+}
+
+.securityAuditName {
+  min-width: 0;
+  color: #111111;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.securityAuditBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 5px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.securityAuditBadgePass {
+  background: #2f4f34;
+  color: #f7fbf6;
+}
+
+.securityAuditBadgeWarn {
+  background: #74551c;
+  color: #fff9eb;
+}
+
+.relatedList {
+  padding: 10px 0;
+}
+
+.relatedLink {
+  text-decoration: none;
+}
+
+.relatedLink:hover {
+  background: #fbfbfa;
+}
+
+.relatedDescription {
+  white-space: normal;
+}
+
+@media (max-width: 900px) {
+  .summaryLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .statsHighlights {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .statsMetric + .statsMetric {
+    border-left: 0;
+    border-top: 1px solid #eaeaea;
+    padding-left: 0;
+    padding-top: 12px;
+  }
+
+  .statsMetric:first-child {
+    padding-right: 0;
+  }
+}

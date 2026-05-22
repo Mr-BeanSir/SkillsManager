@@ -1,0 +1,3 @@
+# Use Tauri for the cross-platform desktop app
+
+Skills Manager will use Tauri 2 for its Windows, macOS, and Linux desktop app because the product needs local filesystem access, symbolic link creation, background reconcile jobs, SQLite-backed application state, and multiple package formats. Tauri keeps the desktop shell lightweight while giving the app a Rust backend for system work and a web frontend for the management UI; Electron was rejected for its heavier runtime footprint, and Flutter Desktop was rejected because this file-management-heavy tool benefits more from Tauri's system integration and web UI stack.

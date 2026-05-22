@@ -1,0 +1,317 @@
+.detailActions {
+  display: grid;
+  justify-items: stretch;
+  gap: 8px;
+  min-width: 168px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.summaryCard {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.summaryCard p,
+.summaryCard strong {
+  margin: 0;
+}
+
+#groupsDeleteTitle {
+  margin-bottom: 10px;
+}
+
+.summaryCard p {
+  color: #787774;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.summaryCard strong {
+  color: #111111;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.createInline {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(260px, 1.4fr) auto;
+  align-items: end;
+  gap: 12px;
+  border-bottom: 1px solid #eaeaea;
+  padding: 16px 18px;
+}
+
+.inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.createModalForm {
+  display: grid;
+  gap: 18px;
+  padding: 18px 20px 0;
+}
+
+.alignStart {
+  justify-self: start;
+}
+
+.editorHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.editorActions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.transferLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.transferPanel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.transferPanel:nth-of-type(1) {
+    border-right: 1px solid #eaeaea;;
+    border-radius: 0;
+}
+
+.transferPanel:nth-of-type(2) {
+  border-left: 1px solid #eaeaea;;
+  border-radius: 0
+}
+
+.transferPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #eaeaea;
+  padding: 12px 14px;
+}
+
+.transferPanelHeading {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  min-width: 0;
+}
+
+.transferPanelHeader h4 {
+  margin: 0;
+  color: #111111;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.transferPanelHeader h3 {
+  margin: 0;
+  color: #111111;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.transferSearchInline {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  min-width: min(100px, 100%);
+}
+
+.transferSearchInline input {
+  width: 150px;
+  min-width: 0;
+  font-size: 12px;
+  border: 1px solid #dfddd7;
+  border-radius: 8px;
+  background: #fbfbfa;
+  color: #2f3437;
+  padding: 9px 12px;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.transferSearchInline input::placeholder {
+  color: #9a968f;
+}
+
+.transferSearchInline input:hover {
+  border-color: #cfccc4;
+  background: #ffffff;
+}
+
+.transferSearchInline input:focus {
+  border-color: #111111;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.06);
+  outline: none;
+}
+
+.transferList {
+  display: grid;
+  align-content: start;
+  min-height: 280px;
+  max-height: 380px;
+  overflow: auto;
+}
+
+.transferPanelFooter {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 44px;
+  border-top: 1px solid #eaeaea;
+  background: #fbfbfa;
+  padding: 10px 14px;
+}
+
+.transferRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border-bottom: 1px solid #eaeaea;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+
+.transferRow:last-child {
+  border-bottom: 0;
+}
+
+.transferRow:hover {
+  background: #fbfbfa;
+}
+
+.transferRow input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #111111;
+}
+
+.transferRow span,
+.transferRow strong,
+.transferRow small {
+  min-width: 0;
+}
+
+.transferRow strong,
+.transferRow small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transferRow strong {
+  color: #111111;
+  font-size: 13px;
+}
+
+.transferRow small {
+  color: #787774;
+  font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.transferControls {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+}
+
+.mutedCopy {
+  margin: 0;
+  color: #787774;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 12px;
+}
+
+.compactEmptyState {
+  padding: 24px 16px;
+}
+
+.usageList {
+  display: grid;
+}
+
+.usageActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 1120px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detailActions {
+    min-width: 0;
+  }
+
+  .editorHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .editorActions {
+    justify-items: start;
+  }
+
+  .transferPanelHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .transferSearchInline {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .summaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .transferLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .transferControls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

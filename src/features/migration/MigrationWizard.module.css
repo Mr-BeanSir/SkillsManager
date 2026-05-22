@@ -1,0 +1,139 @@
+.progress {
+  display: grid;
+  gap: 10px;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.stepCurrent {
+  background: #f7f6f3;
+}
+
+.stepComplete {
+  background: #edf3ec;
+}
+
+.stepIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #eaeaea;
+  border-radius: 999px;
+  color: #787774;
+  font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
+.stepCopy {
+  display: grid;
+  gap: 4px;
+}
+
+.stepCopy strong {
+  color: #111111;
+  font-size: 13px;
+}
+
+.report {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #fbfbfa;
+  padding: 14px;
+}
+
+.reportHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.stat {
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.stat dt,
+.stat dd {
+  margin: 0;
+}
+
+.stat dt {
+  color: #787774;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stat dd {
+  margin-top: 8px;
+  color: #111111;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.block {
+  display: grid;
+  gap: 8px;
+}
+
+.block strong {
+  color: #111111;
+  font-size: 13px;
+}
+
+.callout {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #fbfbfa;
+  padding: 12px;
+}
+
+.callout p {
+  margin: 0;
+}
+
+.calloutError {
+  border-color: #f3c4c6;
+  background: #fdebec;
+  color: #9f2f2d;
+}
+
+.list {
+  margin: 0;
+  padding-left: 18px;
+  color: inherit;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.path {
+  max-width: 100%;
+  padding: 0;
+  white-space: normal;
+  word-break: break-word;
+}
