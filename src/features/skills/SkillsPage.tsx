@@ -386,27 +386,27 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
 
         {!isLoading && page.filteredCount > 0 ? (
           <div className="pagination-bar" aria-label={t(catalog, language, "skills.pagination.label")}>
-            <span>
-              {t(catalog, language, "skills.pagination.status", {
-                page: page.currentPage,
-                totalPages: page.totalPages
-              })}
-            </span>
             <button
               className="button button-secondary"
               disabled={page.currentPage <= 1}
               onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}
               type="button"
             >
-              {t(catalog, language, "skills.pagination.previous")}
+              {t(catalog, language, "pagination.previous")}
             </button>
+            <span>
+              {t(catalog, language, "pagination.status", {
+                page: page.currentPage,
+                totalPages: page.totalPages
+              })}
+            </span>
             <button
               className="button button-secondary"
               disabled={page.currentPage >= page.totalPages}
               onClick={() => setCurrentPage((value) => Math.min(page.totalPages, value + 1))}
               type="button"
             >
-              {t(catalog, language, "skills.pagination.next")}
+              {t(catalog, language, "pagination.next")}
             </button>
           </div>
         ) : null}

@@ -296,27 +296,27 @@ export function GroupsPage({
 
         {!isLoading && groups.length > 0 ? (
           <div className="pagination-bar" aria-label={t(catalog, language, "groups.pagination.label")}>
-            <span>
-              {t(catalog, language, "groups.pagination.status", {
-                page: clampedPage,
-                totalPages
-              })}
-            </span>
             <button
               className="button button-secondary"
               disabled={clampedPage <= 1}
               onClick={() => setCurrentPage((value) => Math.max(1, value - 1))}
               type="button"
             >
-              {t(catalog, language, "groups.pagination.previous")}
+              {t(catalog, language, "pagination.previous")}
             </button>
+            <span>
+              {t(catalog, language, "pagination.status", {
+                page: clampedPage,
+                totalPages
+              })}
+            </span>
             <button
               className="button button-secondary"
               disabled={clampedPage >= totalPages}
               onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))}
               type="button"
             >
-              {t(catalog, language, "groups.pagination.next")}
+              {t(catalog, language, "pagination.next")}
             </button>
           </div>
         ) : null}

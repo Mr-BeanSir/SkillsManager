@@ -423,10 +423,10 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
             onClick={() => handlePageChange(page - 1)}
             type="button"
           >
-            {t(catalog, language, "discover.pagination.previous")}
+            {t(catalog, language, "pagination.previous")}
           </button>
           <span>
-            {t(catalog, language, "discover.pagination.status", {
+            {t(catalog, language, "pagination.status", {
               page,
               totalPages
             })}
@@ -437,7 +437,7 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
             onClick={() => handlePageChange(page + 1)}
             type="button"
           >
-            {t(catalog, language, "discover.pagination.next")}
+            {t(catalog, language, "pagination.next")}
           </button>
         </div>
       </section>
