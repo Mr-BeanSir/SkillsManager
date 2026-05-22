@@ -50,20 +50,17 @@ describe("App navigation copy", () => {
     expect(t(fallbackLocale, "en", "settings.reconcile.title")).toBe(
       "Auto-Reconcile"
     );
-    expect(t(fallbackLocale, "en", "settings.reconcile.enabled")).toBe(
-      "On"
-    );
-    expect(t(fallbackLocale, "en", "settings.reconcile.disabled")).toBe(
-      "Off"
+    expect(t(fallbackLocale, "en", "settings.reconcile.description")).toBe(
+      "When enabled, project skill, group, and CLI target changes can reconcile symlinks automatically."
     );
   });
 
   test("includes startup settings copy", () => {
     expect(t(fallbackLocale, "en", "settings.startup.title")).toBe("Startup");
-    expect(t(fallbackLocale, "en", "settings.startup.launchAtStartup.label")).toBe(
+    expect(t(fallbackLocale, "en", "settings.startup.launchAtStartup.title")).toBe(
       "Launch at startup"
     );
-    expect(t(fallbackLocale, "en", "settings.startup.silentStart.label")).toBe(
+    expect(t(fallbackLocale, "en", "settings.startup.silentStart.title")).toBe(
       "Silent start"
     );
   });
@@ -71,7 +68,7 @@ describe("App navigation copy", () => {
   test("includes settings entry copy for cli target management", () => {
     expect(t(fallbackLocale, "en", "settings.cliTargets.title")).toBe("CLI Targets");
     expect(t(fallbackLocale, "en", "settings.cliTargets.open")).toBe(
-      "Open CLI Targets"
+      "Manage"
     );
   });
 

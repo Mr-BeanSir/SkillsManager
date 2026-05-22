@@ -6,6 +6,7 @@ mod desktop;
 pub mod domain;
 pub mod fs_links;
 mod install;
+mod locales;
 mod migration;
 mod project_cli_targets;
 mod project_groups;
@@ -19,6 +20,7 @@ mod skill_files;
 mod skill_groups;
 mod skill_updates;
 mod skills;
+mod updater;
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -63,6 +65,8 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            crate::locales::ensure_locales().map_err(|error| std::io::Error::other(error))?;
+
             let database_path =
                 crate::app_paths::database_path().map_err(|error| std::io::Error::other(error.to_string()))?;
             let connection =
@@ -98,6 +102,7 @@ pub fn run() {
             desktop::get_desktop_runtime_record,
             desktop::restart_as_administrator,
             desktop::exit_application,
+            locales::read_locale_file,
             install::install_local_fixture_skill,
             migration::migrate_project_only_database_record,
             project_cli_targets::list_available_cli_target_records,
@@ -144,7 +149,11 @@ pub fn run() {
             skill_updates::update_installed_skill_record,
             skill_updates::update_installed_skills_record,
             skill_updates::update_installed_skills_batch_record,
-            skills::list_installed_skill_records
+            skills::list_installed_skill_records,
+            updater::get_app_version,
+            updater::check_app_update,
+            updater::download_app_update,
+            updater::install_update_and_restart
         ])
         .run(tauri::generate_context!())
         .expect("error while running Skills Manager");

@@ -10,8 +10,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "changeset": "changeset",
-    "version": "changeset version",
-    "release": "changeset version"
+    "version": "changeset version && node scripts/sync-version.mjs",
+    "release": "changeset version && node scripts/sync-version.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.7",

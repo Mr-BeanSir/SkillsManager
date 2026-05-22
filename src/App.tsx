@@ -45,7 +45,7 @@ import {
 } from "./i18n";
 
 export function App() {
-  const [currentPage, setCurrentPage] = useState<AppPageState>("skills");
+  const [currentPage, setCurrentPage] = useState<AppPageState>("projects");
   const [pendingPage, setPendingPage] = useState<AppPageState | null>(null);
   const [selectedRemoteSkill, setSelectedRemoteSkill] = useState<DiscoverSkill | null>(null);
   const [skillDetailDirty, setSkillDetailDirty] = useState(false);
@@ -149,7 +149,7 @@ export function App() {
 
   return (
     <div className="app-shell">
-      {desktopRuntime?.shouldPromptForAdminRestart ? (
+      {desktopRuntime?.shouldPromptForAdminRestart && !window.location.origin.includes("127.0.0.1") ? (
         <div className="modal-backdrop">
           <div
             aria-labelledby="admin-restart-title"

@@ -168,6 +168,13 @@ export function t(
 }
 
 async function defaultFetchJson<T>(path: string): Promise<T> {
+  if ("__TAURI_INTERNALS__" in globalThis) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const filename = path.replace(/^\/locales\//, "");
+    const content = await invoke<string>("read_locale_file", { filename });
+    return JSON.parse(content) as T;
+  }
+
   const response = await fetch(path);
 
   if (!response.ok) {
