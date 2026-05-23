@@ -155,7 +155,11 @@ fn enable_project_group_and_reconcile(
     environment: &ReconcileEnvironment,
 ) -> Result<ProjectGroupRecord, ProjectGroupError> {
     let record = enable_project_group(connection, project_id, group_id)?;
-    reconcile_project_record_if_enabled(connection, environment, project_id)?;
+    if let Err(error) = reconcile_project_record_if_enabled(connection, environment, project_id) {
+        // Rollback: disable the group if reconcile fails
+        let _ = disable_project_group(connection, project_id, group_id);
+        return Err(error.into());
+    }
     Ok(record)
 }
 
@@ -166,7 +170,11 @@ fn disable_project_group_and_reconcile(
     environment: &ReconcileEnvironment,
 ) -> Result<ProjectGroupRecord, ProjectGroupError> {
     let record = disable_project_group(connection, project_id, group_id)?;
-    reconcile_project_record_if_enabled(connection, environment, project_id)?;
+    if let Err(error) = reconcile_project_record_if_enabled(connection, environment, project_id) {
+        // Rollback: re-enable the group if reconcile fails
+        let _ = enable_project_group(connection, project_id, group_id);
+        return Err(error.into());
+    }
     Ok(record)
 }
 

@@ -134,7 +134,11 @@ fn enable_project_skill_and_reconcile(
     environment: &ReconcileEnvironment,
 ) -> Result<ProjectSkillRecord, ProjectSkillError> {
     let record = enable_project_skill(connection, project_id, skill_id)?;
-    reconcile_project_record_if_enabled(connection, environment, project_id)?;
+    if let Err(error) = reconcile_project_record_if_enabled(connection, environment, project_id) {
+        // Rollback: disable the skill if reconcile fails
+        let _ = disable_project_skill(connection, project_id, skill_id);
+        return Err(error.into());
+    }
     Ok(record)
 }
 
@@ -145,7 +149,11 @@ fn disable_project_skill_and_reconcile(
     environment: &ReconcileEnvironment,
 ) -> Result<ProjectSkillRecord, ProjectSkillError> {
     let record = disable_project_skill(connection, project_id, skill_id)?;
-    reconcile_project_record_if_enabled(connection, environment, project_id)?;
+    if let Err(error) = reconcile_project_record_if_enabled(connection, environment, project_id) {
+        // Rollback: re-enable the skill if reconcile fails
+        let _ = enable_project_skill(connection, project_id, skill_id);
+        return Err(error.into());
+    }
     Ok(record)
 }
 

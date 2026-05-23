@@ -78,14 +78,24 @@ pub fn reconcile_project_groups(
         }
     }
 
+    let mut first_delete_error: Option<String> = None;
+
     for target_dir in expected_by_target_dir.keys() {
-        delete_stale_managed_links(
+        if let Err(error_message) = delete_stale_managed_links(
             &PathBuf::from(target_dir),
             expected_by_target_dir
                 .get(target_dir)
                 .expect("target dir entry should exist"),
             &managed_root,
-        );
+        ) {
+            if first_delete_error.is_none() {
+                first_delete_error = Some(error_message);
+            }
+        }
+    }
+
+    if let Some(error_message) = first_delete_error {
+        return Err(ReconcileError::SymlinkFailed { message: error_message });
     }
 
     delete_stale_links_for_removed_targets(
@@ -356,15 +366,25 @@ fn reconcile_expected_links_for_target_dirs(
         }
     }
 
+    let mut first_delete_error: Option<String> = None;
+
     for configured_target_dir in configured_target_dirs {
         let target_dir = &configured_target_dir.target_dir;
         let expected_link_paths = expected_by_target_dir
             .get(&path_string(target_dir))
             .expect("configured target dir entry should exist");
-        delete_stale_managed_links(target_dir, expected_link_paths, &managed_root);
+        if let Err(error_message) = delete_stale_managed_links(target_dir, expected_link_paths, &managed_root) {
+            if first_delete_error.is_none() {
+                first_delete_error = Some(error_message);
+            }
+        }
     }
 
     if let Some(error_message) = first_link_error {
+        return Err(ReconcileError::SymlinkFailed { message: error_message });
+    }
+
+    if let Some(error_message) = first_delete_error {
         return Err(ReconcileError::SymlinkFailed { message: error_message });
     }
 
@@ -390,6 +410,8 @@ fn delete_stale_links_for_removed_targets(
     project_paths.sort();
     project_paths.dedup();
 
+    let mut first_delete_error: Option<String> = None;
+
     for project_path in project_paths {
         let directories =
             list_managed_target_directories_under_project(&project_path, managed_root);
@@ -399,8 +421,16 @@ fn delete_stale_links_for_removed_targets(
                 continue;
             }
 
-            delete_stale_managed_links(&target_dir, &HashSet::new(), managed_root);
+            if let Err(error_message) = delete_stale_managed_links(&target_dir, &HashSet::new(), managed_root) {
+                if first_delete_error.is_none() {
+                    first_delete_error = Some(error_message);
+                }
+            }
         }
+    }
+
+    if let Some(error_message) = first_delete_error {
+        return Err(ReconcileError::SymlinkFailed { message: error_message });
     }
 
     crate::fs_links::delete_managed_skill_links_under_root(
@@ -492,9 +522,9 @@ fn delete_stale_managed_links(
     target_dir: &Path,
     expected_link_paths: &HashSet<String>,
     managed_root: &Path,
-) {
+) -> Result<(), String> {
     let Ok(entries) = fs::read_dir(target_dir) else {
-        return;
+        return Ok(());
     };
 
     for entry in entries.flatten() {
@@ -504,8 +534,15 @@ fn delete_stale_managed_links(
             continue;
         }
 
-        let _ = crate::fs_links::delete_managed_skill_link(&link_path, managed_root);
+        let result = crate::fs_links::delete_managed_skill_link(&link_path, managed_root);
+        if result.status == crate::fs_links::SkillLinkStatus::Failed {
+            if let Some(error_message) = result.error_message {
+                return Err(error_message);
+            }
+        }
     }
+
+    Ok(())
 }
 
 fn project_target_path(project_root: &Path, relative_path: &str) -> PathBuf {
