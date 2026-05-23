@@ -1,6 +1,6 @@
 [package]
 name = "skills-manager"
-version = "0.4.0"
+version = "0.5.0"
 description = "A desktop manager for local agent skills"
 authors = ["Skills Manager Contributors"]
 edition = "2021"
