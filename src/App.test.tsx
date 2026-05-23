@@ -73,9 +73,9 @@ describe("App navigation copy", () => {
   });
 
   test("includes cli target management page copy", () => {
-    expect(t(fallbackLocale, "en", "cliTargets.title")).toBe("Manage CLI Targets");
-    expect(t(fallbackLocale, "en", "cliTargets.form.add")).toBe("Add CLI Target");
-    expect(t(fallbackLocale, "en", "cliTargets.form.save")).toBe("Save Changes");
+    expect(t(fallbackLocale, "en", "settings.cliTargets.pageTitle")).toBe("Manage CLI Targets");
+    expect(t(fallbackLocale, "en", "settings.cliTargets.form.add")).toBe("Add CLI Target");
+    expect(t(fallbackLocale, "en", "settings.cliTargets.form.save")).toBe("Save Changes");
   });
 
   test("includes language apply copy", () => {

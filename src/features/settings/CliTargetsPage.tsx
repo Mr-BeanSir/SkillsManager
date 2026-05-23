@@ -114,7 +114,7 @@ export function CliTargetsPage({
         t(
           catalog,
           language,
-          editingTarget ? "cliTargets.updated" : "cliTargets.created",
+          editingTarget ? "settings.cliTargets.updated" : "settings.cliTargets.created",
           { name: saved.displayName }
         )
       );
@@ -132,7 +132,7 @@ export function CliTargetsPage({
     }
 
     const confirmed = window.confirm(
-      t(catalog, language, "cliTargets.deleteConfirm", {
+      t(catalog, language, "settings.cliTargets.deleteConfirm", {
         name: cliTarget.displayName
       })
     );
@@ -148,7 +148,7 @@ export function CliTargetsPage({
       await deleteCliTarget(cliTarget.id);
       setCliTargets((current) => current.filter((item) => item.id !== cliTarget.id));
       setStatus(
-        t(catalog, language, "cliTargets.deleted", {
+        t(catalog, language, "settings.cliTargets.deleted", {
           name: cliTarget.displayName
         })
       );
@@ -161,23 +161,22 @@ export function CliTargetsPage({
     <section className="page-stack" aria-labelledby="cli-targets-title">
       <header className="topbar page-topbar">
         <div>
-          <button className="button button-secondary" onClick={onBack} type="button">
-            <ArrowLeft size={16} weight="bold" aria-hidden="true" />
-            {t(catalog, language, "cliTargets.back")}
-          </button>
-          <p className="eyebrow">{t(catalog, language, "cliTargets.eyebrow")}</p>
-          <h1 id="cli-targets-title">{t(catalog, language, "cliTargets.title")}</h1>
-          <p className={styles.detailCopy}>{t(catalog, language, "cliTargets.description")}</p>
+          <p className="eyebrow">{t(catalog, language, "settings.cliTargets.eyebrow")}</p>
+          <h1 id="cli-targets-title">{t(catalog, language, "settings.cliTargets.pageTitle")}</h1>
         </div>
+        <button className="button button-secondary" onClick={onBack} type="button">
+          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
+          {t(catalog, language, "settings.cliTargets.back")}
+        </button>
       </header>
 
       <div className={styles.layout}>
         <section className="panel" aria-labelledby="cli-targets-table-title">
           <div className="panel-header">
             <div>
-              <h2 id="cli-targets-table-title">{t(catalog, language, "cliTargets.table.title")}</h2>
+              <h2 id="cli-targets-table-title">{t(catalog, language, "settings.cliTargets.table.title")}</h2>
               <p>
-                {t(catalog, language, "cliTargets.table.description", {
+                {t(catalog, language, "settings.cliTargets.table.description", {
                   count: cliTargets.length
                 })}
               </p>
@@ -185,7 +184,7 @@ export function CliTargetsPage({
             <div className={styles.actions}>
               <button className="button button-primary" onClick={openCreateDialog} type="button">
                 <Plus size={16} weight="bold" aria-hidden="true" />
-                {t(catalog, language, "cliTargets.form.add")}
+                {t(catalog, language, "settings.cliTargets.form.add")}
               </button>
             </div>
           </div>
@@ -206,17 +205,17 @@ export function CliTargetsPage({
             <table>
               <thead>
                 <tr>
-                  <th scope="col">{t(catalog, language, "cliTargets.table.name")}</th>
-                  <th scope="col">{t(catalog, language, "cliTargets.table.path")}</th>
-                  <th scope="col">{t(catalog, language, "cliTargets.table.scope")}</th>
-                  <th scope="col">{t(catalog, language, "cliTargets.table.updated")}</th>
-                  <th scope="col">{t(catalog, language, "cliTargets.table.actions")}</th>
+                  <th scope="col">{t(catalog, language, "settings.cliTargets.table.name")}</th>
+                  <th scope="col">{t(catalog, language, "settings.cliTargets.table.path")}</th>
+                  <th scope="col">{t(catalog, language, "settings.cliTargets.table.scope")}</th>
+                  <th scope="col">{t(catalog, language, "settings.cliTargets.table.updated")}</th>
+                  <th scope="col">{t(catalog, language, "settings.cliTargets.table.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5}>{t(catalog, language, "cliTargets.loading")}</td>
+                    <td colSpan={5}>{t(catalog, language, "settings.cliTargets.loading")}</td>
                   </tr>
                 ) : null}
 
@@ -225,8 +224,8 @@ export function CliTargetsPage({
                     <td colSpan={5}>
                       <div className="empty-state">
                         <Plus size={20} weight="bold" aria-hidden="true" />
-                        <strong>{t(catalog, language, "cliTargets.empty.title")}</strong>
-                        <p>{t(catalog, language, "cliTargets.empty.copy")}</p>
+                        <strong>{t(catalog, language, "settings.cliTargets.empty.title")}</strong>
+                        <p>{t(catalog, language, "settings.cliTargets.empty.copy")}</p>
                       </div>
                     </td>
                   </tr>
@@ -252,8 +251,8 @@ export function CliTargetsPage({
                           catalog,
                           language,
                           cliTarget.isBuiltIn
-                            ? "cliTargets.scope.builtIn"
-                            : "cliTargets.scope.custom"
+                            ? "settings.cliTargets.scope.builtIn"
+                            : "settings.cliTargets.scope.custom"
                         )}
                       </span>
                     </td>
@@ -263,7 +262,7 @@ export function CliTargetsPage({
                         {!cliTarget.isBuiltIn ? (
                           <>
                             <button
-                              aria-label={t(catalog, language, "cliTargets.action.edit", {
+                              aria-label={t(catalog, language, "settings.cliTargets.action.edit", {
                                 name: cliTarget.displayName
                               })}
                               className="icon-button"
@@ -273,7 +272,7 @@ export function CliTargetsPage({
                               <NotePencil size={18} weight="bold" aria-hidden="true" />
                             </button>
                             <button
-                              aria-label={t(catalog, language, "cliTargets.action.delete", {
+                              aria-label={t(catalog, language, "settings.cliTargets.action.delete", {
                                 name: cliTarget.displayName
                               })}
                               className="icon-button danger-button"
@@ -285,7 +284,7 @@ export function CliTargetsPage({
                           </>
                         ) : (
                           <span className={styles.builtInText}>
-                            {t(catalog, language, "cliTargets.action.builtIn")}
+                            {t(catalog, language, "settings.cliTargets.action.builtIn")}
                           </span>
                         )}
                       </div>
@@ -303,7 +302,7 @@ export function CliTargetsPage({
           <div
             aria-labelledby="cli-targets-form-title"
             aria-modal="true"
-            className="modal-panel"
+            className="modal-panel modal-panel-compact"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
           >
@@ -311,13 +310,13 @@ export function CliTargetsPage({
               <div>
                 <h2 id="cli-targets-form-title">
                   {editingTarget
-                    ? t(catalog, language, "cliTargets.form.editTitle")
-                    : t(catalog, language, "cliTargets.form.addTitle")}
+                    ? t(catalog, language, "settings.cliTargets.form.editTitle")
+                    : t(catalog, language, "settings.cliTargets.form.addTitle")}
                 </h2>
-                <p>{t(catalog, language, "cliTargets.form.description")}</p>
+                <p>{t(catalog, language, "settings.cliTargets.form.description")}</p>
               </div>
               <button
-                aria-label={t(catalog, language, "cliTargets.form.close")}
+                aria-label={t(catalog, language, "settings.cliTargets.form.close")}
                 className="icon-button"
                 disabled={isSaving}
                 onClick={closeDraftDialog}
@@ -329,46 +328,46 @@ export function CliTargetsPage({
 
             <form className={styles.modalForm} onSubmit={handleSave}>
               <label className="field">
-                <span>{t(catalog, language, "cliTargets.form.name")}</span>
+                <span>{t(catalog, language, "settings.cliTargets.form.name")}</span>
                 <input
                   autoComplete="off"
                   name="cli-target-name"
                   onChange={(event) =>
                     setDraft((current) => ({ ...current, displayName: event.target.value }))
                   }
-                  placeholder={t(catalog, language, "cliTargets.form.namePlaceholder")}
+                  placeholder={t(catalog, language, "settings.cliTargets.form.namePlaceholder")}
                   required
                   value={draft.displayName}
                 />
               </label>
 
               <label className="field">
-                <span>{t(catalog, language, "cliTargets.form.path")}</span>
+                <span>{t(catalog, language, "settings.cliTargets.form.path")}</span>
                 <input
                   autoComplete="off"
                   name="cli-target-relative-path"
                   onChange={(event) =>
                     setDraft((current) => ({ ...current, relativePath: event.target.value }))
                   }
-                  placeholder={t(catalog, language, "cliTargets.form.pathPlaceholder")}
+                  placeholder={t(catalog, language, "settings.cliTargets.form.pathPlaceholder")}
                   required
                   value={draft.relativePath}
                 />
               </label>
 
-              <div className="modal-actions">
+              <div className={styles.modalActions}>
                 <button
                   className="button button-secondary"
                   disabled={isSaving}
                   onClick={closeDraftDialog}
                   type="button"
                 >
-                  {t(catalog, language, "cliTargets.form.cancel")}
+                  {t(catalog, language, "settings.cliTargets.form.cancel")}
                 </button>
                 <button className="button button-primary" disabled={isSaving} type="submit">
                   {editingTarget
-                    ? t(catalog, language, "cliTargets.form.save")
-                    : t(catalog, language, "cliTargets.form.add")}
+                    ? t(catalog, language, "settings.cliTargets.form.save")
+                    : t(catalog, language, "settings.cliTargets.form.add")}
                 </button>
               </div>
             </form>

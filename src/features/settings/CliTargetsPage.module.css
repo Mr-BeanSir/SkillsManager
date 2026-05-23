@@ -16,7 +16,16 @@
 
 .modalForm {
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  padding: 18px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #eaeaea;
 }
 
 .builtInText {
