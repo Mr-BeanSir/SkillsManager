@@ -403,22 +403,44 @@ fn delete_stale_links_for_removed_targets(
         .map(|entry| path_string(&entry.target_dir))
         .collect::<HashSet<_>>();
 
-    let mut project_paths = configured_target_dirs
+    let mut project_paths: Vec<PathBuf> = configured_target_dirs
         .iter()
         .map(|entry| normalize_path(&entry.project_path))
-        .collect::<Vec<_>>();
+        .collect();
     project_paths.sort();
     project_paths.dedup();
 
+    // When a project is deleted from the database, its cascade-deleted
+    // project_cli_targets means the query above returns nothing for that
+    // project.  Scan the home directory to find project paths that may still
+    // contain stale managed links.
+    let db_project_paths: HashSet<String> = project_paths
+        .iter()
+        .map(|p| path_string(p))
+        .collect();
+    let home_project_paths = scan_home_for_project_paths(&environment.home_dir, managed_root);
+    for path in home_project_paths {
+        if !db_project_paths.contains(&path_string(&path)) {
+            project_paths.push(path);
+        }
+    }
+
     let mut first_delete_error: Option<String> = None;
 
-    for project_path in project_paths {
+    for project_path in &project_paths {
         let directories =
-            list_managed_target_directories_under_project(&project_path, managed_root);
+            list_managed_target_directories_under_project(project_path, managed_root);
         for target_dir in directories {
             let target_key = path_string(&target_dir);
+            // Configured directories that have expected links are handled by the
+            // main reconcile loop.  Configured directories with NO expected links
+            // (all skills disabled/removed) still need stale-link cleanup.
             if configured_target_dir_set.contains(&target_key) {
-                continue;
+                if let Some(expected) = expected_by_target_dir.get(&target_key) {
+                    if !expected.is_empty() {
+                        continue;
+                    }
+                }
             }
 
             if let Err(error_message) = delete_stale_managed_links(&target_dir, &HashSet::new(), managed_root) {
@@ -433,10 +455,14 @@ fn delete_stale_links_for_removed_targets(
         return Err(ReconcileError::SymlinkFailed { message: error_message });
     }
 
+    let all_expected_links: HashSet<String> = expected_by_target_dir
+        .values()
+        .flat_map(|set| set.iter().cloned())
+        .collect();
     crate::fs_links::delete_managed_skill_links_under_root(
         &environment.home_dir,
         managed_root,
-        &HashSet::new(),
+        &all_expected_links,
     );
 
     for (target_dir, expected_links) in expected_by_target_dir {
@@ -447,6 +473,53 @@ fn delete_stale_links_for_removed_targets(
         );
     }
     Ok(())
+}
+
+fn scan_home_for_project_paths(home_dir: &Path, managed_root: &Path) -> Vec<PathBuf> {
+    let mut project_paths = Vec::new();
+    scan_home_recursive(home_dir, managed_root, 0, &mut project_paths);
+    project_paths
+}
+
+fn scan_home_recursive(
+    directory: &Path,
+    managed_root: &Path,
+    depth: usize,
+    results: &mut Vec<PathBuf>,
+) {
+    // Limit search depth: project dirs are typically at most 2-3 levels deep
+    // in the home directory (e.g. ~/projects/my-app, ~/code/my-app).
+    const MAX_DEPTH: usize = 3;
+
+    if depth > MAX_DEPTH {
+        return;
+    }
+
+    let Ok(entries) = fs::read_dir(directory) else {
+        return;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(metadata) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+
+        // Skip symlinks/junctions — they are managed links, not project dirs
+        if metadata.file_type().is_symlink() {
+            continue;
+        }
+
+        if !metadata.is_dir() {
+            continue;
+        }
+
+        if directory_contains_managed_link(&path, managed_root) {
+            results.push(normalize_path(&path));
+        }
+
+        scan_home_recursive(&path, managed_root, depth + 1, results);
+    }
 }
 
 fn list_managed_target_directories_under_project(
@@ -553,7 +626,19 @@ fn project_target_path(project_root: &Path, relative_path: &str) -> PathBuf {
 }
 
 fn path_string(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
+    strip_verbatim_prefix(path).to_string_lossy().into_owned()
+}
+
+/// Strip the `\\?\` Win32 verbatim prefix that `fs::canonicalize` and
+/// `fs::read_dir` may add on Windows.  Without this, the same physical path
+/// appears as two different strings and comparison breaks.
+fn strip_verbatim_prefix(path: &Path) -> PathBuf {
+    let s = path.to_string_lossy();
+    if let Some(rest) = s.strip_prefix("\\\\?\\") {
+        PathBuf::from(rest)
+    } else {
+        path.to_path_buf()
+    }
 }
 
 fn normalize_path(path: &Path) -> PathBuf {
@@ -605,6 +690,7 @@ mod tests {
         let link_path = target_dir.join("grill-with-docs");
 
         assert!(target_dir.is_dir());
+
         assert_eq!(
             check_skill_link(&link_path, &managed_target).status,
             SkillLinkStatus::Linked
@@ -806,7 +892,9 @@ mod tests {
     fn project_reconcile_deletes_stale_managed_links_after_project_delete() {
         let connection = open_project_only_in_memory_database();
         let workspace = TestWorkspace::new("project-delete-cleanup");
-        let project_root = workspace.root.join("workspace");
+        // Place project inside home so the home directory scan can find it
+        // after the project is deleted from the database.
+        let project_root = workspace.home.join("workspace");
         let managed_target = workspace.create_managed_skill("grill-with-docs-11111111");
         if !workspace.assert_symlink_capable(&managed_target) {
             return;

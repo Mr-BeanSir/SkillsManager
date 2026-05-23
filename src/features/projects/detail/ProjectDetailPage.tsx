@@ -367,16 +367,7 @@ export function ProjectDetailPage({
         )
       );
     } catch (reason) {
-      const rawMessage = errorMessage(reason);
-      if (
-        rawMessage.includes("administrator") ||
-        rawMessage.includes("Developer Mode") ||
-        rawMessage.includes("symlink")
-      ) {
-        message.error(t(catalog, language, "error.symlinkPermission"));
-      } else {
-        message.error(rawMessage);
-      }
+      message.error(errorMessage(reason));
     } finally {
       setPendingSkillToggleIds((current) =>
         current.filter((item) => item !== skill.skillId)
@@ -491,16 +482,7 @@ export function ProjectDetailPage({
         )
       );
     } catch (reason) {
-      const rawMessage = errorMessage(reason);
-      if (
-        rawMessage.includes("administrator") ||
-        rawMessage.includes("Developer Mode") ||
-        rawMessage.includes("symlink")
-      ) {
-        message.error(t(catalog, language, "error.symlinkPermission"));
-      } else {
-        message.error(rawMessage);
-      }
+      message.error(errorMessage(reason));
     } finally {
       setPendingGroupActionIds((current) => clearPendingRowId(current, group.groupId));
     }

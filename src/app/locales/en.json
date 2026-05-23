@@ -169,10 +169,6 @@
   "settings.startup.silentStart.description": "Closing the window hides Skills Manager to the system tray. Use the tray menu to reopen or quit.",
   "settings.startup.silentStart.enabledStatus": "Silent start enabled.",
   "settings.startup.silentStart.disabledStatus": "Silent start disabled.",
-  "settings.adminRestart.title": "Restart as administrator",
-  "settings.adminRestart.description": "Administrator launch is enabled, but the current session is not elevated. Restart now with administrator privileges to keep symlink management working reliably.",
-  "settings.adminRestart.exit": "Exit",
-  "settings.adminRestart.confirm": "Restart now",
   "settings.cliTargets.title": "CLI Targets",
   "settings.cliTargets.description": "Added CLI target apps will be symlinked using relative paths.",
   "settings.cliTargets.open": "Manage",
@@ -486,6 +482,5 @@
   "skills.detail.leaveDialog.title": "Leave skill detail?",
   "skills.detail.leaveDialog.copy": "You have unsaved edits in the current file.",
   "skills.detail.leaveDialog.stay": "Stay here",
-  "skills.detail.leaveDialog.discard": "Discard and leave",
-  "error.symlinkPermission": "Permission error: Unable to create symlink. Please run as administrator or enable Windows Developer Mode."
+  "skills.detail.leaveDialog.discard": "Discard and leave"
 }

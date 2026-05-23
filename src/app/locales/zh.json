@@ -169,10 +169,6 @@
   "settings.startup.silentStart.description": "关闭窗口时隐藏到系统托盘。可从托盘菜单重新打开或退出。",
   "settings.startup.silentStart.enabledStatus": "已开启静默启动。",
   "settings.startup.silentStart.disabledStatus": "已关闭静默启动。",
-  "settings.adminRestart.title": "以管理员身份重启",
-  "settings.adminRestart.description": "当前已开启管理员启动，但本次会话不是管理员权限。现在重启为管理员身份，才能更稳定地管理 symlink。",
-  "settings.adminRestart.exit": "退出",
-  "settings.adminRestart.confirm": "确认重启",
   "settings.cliTargets.title": "CLI Targets",
   "settings.cliTargets.description": "被添加的cli targets应用将会用相对路径进行软链接。",
   "settings.cliTargets.open": "管理",
@@ -486,6 +482,5 @@
   "skills.detail.leaveDialog.title": "离开技能详情？",
   "skills.detail.leaveDialog.copy": "当前文件还有未保存的编辑内容。",
   "skills.detail.leaveDialog.stay": "留在这里",
-  "skills.detail.leaveDialog.discard": "放弃并离开",
-  "error.symlinkPermission": "权限错误：无法创建 symlink。请以管理员身份启动应用，或开启 Windows 开发者模式。"
+  "skills.detail.leaveDialog.discard": "放弃并离开"
 }

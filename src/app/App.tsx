@@ -26,12 +26,6 @@ import { ProjectDetailPage } from "../features/projects/detail/ProjectDetailPage
 import { ProjectsPage } from "../features/projects/home/ProjectsPage";
 import { CliTargetsPage } from "../features/settings/detail/CliTargetsPage";
 import { SettingsPage } from "../features/settings/home/SettingsPage";
-import {
-  exitApplication,
-  readDesktopRuntime,
-  restartAsAdministrator,
-  type DesktopRuntimeRecord
-} from "../features/settings/desktopRuntimeApi";
 import { SkillDetailPage } from "../features/skills/detail/SkillDetailPage";
 import { SkillsPage } from "../features/skills/home/SkillsPage";
 import {
@@ -56,8 +50,6 @@ export function App() {
     loadStoredLanguage(fallbackLocale, window.localStorage)
   );
   const [languageError, setLanguageError] = useState<string | null>(null);
-  const [desktopRuntime, setDesktopRuntime] = useState<DesktopRuntimeRecord | null>(null);
-  const [isRestartingAsAdmin, setIsRestartingAsAdmin] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -84,26 +76,6 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = languageHtmlLang(catalog, language);
   }, [catalog, language]);
-
-  useEffect(() => {
-    let ignore = false;
-
-    readDesktopRuntime()
-      .then((record) => {
-        if (!ignore) {
-          setDesktopRuntime(record);
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setDesktopRuntime(null);
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
 
   async function handleLanguageChange(nextLanguage: LanguageCode) {
     setStoredLanguage(window.localStorage, nextLanguage);
@@ -134,36 +106,8 @@ export function App() {
     setCurrentPage(nextPage);
   }
 
-  async function handleRestartAsAdministrator() {
-    if (isRestartingAsAdmin) {
-      return;
-    }
-
-    setIsRestartingAsAdmin(true);
-
-    try {
-      await restartAsAdministrator();
-      await exitApplication();
-    } catch {
-      setIsRestartingAsAdmin(false);
-    }
-  }
-
   return (
     <div className="app-shell">
-      {desktopRuntime?.shouldPromptForAdminRestart && !window.location.origin.includes("127.0.0.1") ? (
-        <ConfirmDialog
-          cancelLabel={t(catalog, language, "settings.adminRestart.exit")}
-          closeOnBackdropClick={false}
-          confirmLabel={t(catalog, language, "settings.adminRestart.confirm")}
-          description={t(catalog, language, "settings.adminRestart.description")}
-          disabled={isRestartingAsAdmin}
-          title={t(catalog, language, "settings.adminRestart.title")}
-          onCancel={() => void exitApplication()}
-          onConfirm={() => void handleRestartAsAdministrator()}
-        />
-      ) : null}
-
       <a className="skip-link" href="#main-content">
         {t(catalog, language, "app.skipLink")}
       </a>

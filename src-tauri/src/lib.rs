@@ -5,6 +5,8 @@ mod db;
 mod desktop;
 pub mod domain;
 pub mod fs_links;
+#[cfg(test)]
+mod junction_test;
 mod install;
 mod locales;
 mod migration;
@@ -65,20 +67,22 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            crate::locales::ensure_locales().map_err(|error| std::io::Error::other(error))?;
+            // Defer blocking I/O (locales, database) to a background thread so
+            // the window appears immediately instead of showing a blank screen
+            // while setup finishes.
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let _ = crate::locales::ensure_locales();
 
-            let database_path =
-                crate::app_paths::database_path().map_err(|error| std::io::Error::other(error.to_string()))?;
-            let connection =
-                crate::db::open_database(database_path).map_err(|error| std::io::Error::other(error.to_string()))?;
-            let runtime_settings =
-                crate::settings::read_settings(&connection).map_err(|error| std::io::Error::other(error.to_string()))?;
+                let silent_start = crate::app_paths::database_path()
+                    .ok()
+                    .and_then(|path| crate::db::open_database(path).ok())
+                    .and_then(|conn| crate::settings::read_settings(&conn).ok())
+                    .map(|settings| settings.silent_start)
+                    .unwrap_or(false);
 
-            desktop::apply_startup_window_state(
-                &app.handle(),
-                runtime_settings.silent_start,
-            )
-            .map_err(|error| std::io::Error::other(error.to_string()))?;
+                let _ = desktop::apply_startup_window_state(&app_handle, silent_start);
+            });
 
             Ok(())
         })
@@ -99,9 +103,6 @@ pub fn run() {
             custom_directories::create_custom_directory_record,
             custom_directories::update_custom_directory_record,
             custom_directories::delete_custom_directory_record,
-            desktop::get_desktop_runtime_record,
-            desktop::restart_as_administrator,
-            desktop::exit_application,
             locales::read_locale_file,
             install::install_local_fixture_skill,
             migration::migrate_project_only_database_record,

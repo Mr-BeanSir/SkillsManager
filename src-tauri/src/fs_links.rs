@@ -78,7 +78,7 @@ pub fn delete_managed_skill_link(link_path: &Path, managed_skills_root: &Path) -
         }
     };
 
-    if !metadata.file_type().is_symlink() {
+    if !metadata.file_type().is_symlink() && !is_junction(&metadata) {
         return SkillLinkDelete {
             removed: false,
             status: SkillLinkStatus::Conflict,
@@ -110,12 +110,11 @@ pub fn delete_managed_skill_link(link_path: &Path, managed_skills_root: &Path) -
         };
     }
 
-    // On Windows, directory symlinks require `remove_dir` instead of `remove_file`.
-    let remove_result = if metadata.is_dir() {
-        fs::remove_dir(link_path)
-    } else {
-        fs::remove_file(link_path)
-    };
+    // On Windows, reparse points (junctions, directory symlinks) may need
+    // either `remove_file` or `remove_dir` depending on how they were created.
+    // Try both when the first attempt fails.
+    let remove_result = fs::remove_file(link_path)
+        .or_else(|_| fs::remove_dir(link_path));
 
     match remove_result {
         Ok(()) => SkillLinkDelete {
@@ -179,7 +178,9 @@ fn check_existing_path(
     managed_target_path: &Path,
     metadata: &fs::Metadata,
 ) -> SkillLinkCheck {
-    if !metadata.file_type().is_symlink() {
+    let is_symlink_or_junction =
+        metadata.file_type().is_symlink() || is_junction(metadata);
+    if !is_symlink_or_junction {
         return SkillLinkCheck {
             status: SkillLinkStatus::Conflict,
             error_message: None,
@@ -214,12 +215,32 @@ fn check_existing_path(
 
 #[cfg(windows)]
 fn create_dir_symlink(target: &Path, link: &Path) -> io::Result<()> {
-    std::os::windows::fs::symlink_dir(target, link)
+    junction::create(target, link)
 }
 
 #[cfg(unix)]
 fn create_dir_symlink(target: &Path, link: &Path) -> io::Result<()> {
     std::os::unix::fs::symlink(target, link)
+}
+
+/// Returns `true` when the metadata describes a directory reparse point on
+/// Windows.  Both junctions and directory symlinks are reparse points; our
+/// deletion logic handles both identically, so a precise tag check is not
+/// needed.
+#[cfg(windows)]
+fn is_junction(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+
+    metadata.is_dir()
+        && (metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT) != 0
+        && !metadata.file_type().is_symlink()
+}
+
+#[cfg(not(windows))]
+fn is_junction(_metadata: &fs::Metadata) -> bool {
+    false
 }
 
 fn create_failed(link_path: &Path, source: io::Error) -> SkillLinkCheck {
@@ -235,12 +256,8 @@ fn create_failed(link_path: &Path, source: io::Error) -> SkillLinkCheck {
 }
 
 #[cfg(windows)]
-fn symlink_remediation(source: &io::Error) -> &'static str {
-    if source.raw_os_error() == Some(1314) {
-        " Enable Windows Developer Mode or run Skills Manager as administrator; Skills Manager will not fall back to copies or .lnk shortcuts."
-    } else {
-        " Skills Manager will not fall back to copies or .lnk shortcuts."
-    }
+fn symlink_remediation(_source: &io::Error) -> &'static str {
+    " Skills Manager will not fall back to copies or .lnk shortcuts."
 }
 
 #[cfg(not(windows))]
@@ -249,15 +266,28 @@ fn symlink_remediation(_source: &io::Error) -> &'static str {
 }
 
 fn resolve_link_target(link_path: &Path, target: &Path) -> PathBuf {
+    let target = strip_nt_prefix(target);
     if target.is_absolute() {
-        normalize_path(target)
+        normalize_path(&target)
     } else {
         normalize_path(
             &link_path
                 .parent()
-                .map(|parent| parent.join(target))
+                .map(|parent| parent.join(&target))
                 .unwrap_or_else(|| target.to_path_buf()),
         )
+    }
+}
+
+/// Strip the `\??\` NT path prefix that the `junction` crate (and Windows
+/// reparse points in general) prepend to substitute names.  Without this,
+/// `fs::canonicalize` fails to resolve the path and comparisons break.
+fn strip_nt_prefix(path: &Path) -> PathBuf {
+    let s = path.to_string_lossy();
+    if let Some(rest) = s.strip_prefix("\\??\\") {
+        PathBuf::from(rest)
+    } else {
+        path.to_path_buf()
     }
 }
 
@@ -611,18 +641,7 @@ mod tests {
             .error_message
             .expect("failed symlink creation should include guidance");
         assert!(error_message.contains("failed to create filesystem symlink"));
-
-        #[cfg(windows)]
-        {
-            assert!(error_message.contains("Developer Mode"));
-            assert!(error_message.contains("administrator"));
-            assert!(error_message.contains(".lnk"));
-        }
-
-        #[cfg(not(windows))]
-        {
-            assert!(error_message.contains("will not fall back"));
-        }
+        assert!(error_message.contains("will not fall back"));
 
         false
     }
