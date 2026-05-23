@@ -411,7 +411,7 @@ export function SettingsPage({
           </section>
 
           <section className={`panel ${styles.panel} ${styles.section}`} id="discoverPageSize" aria-labelledby="discover-page-size-title">
-            <div className="panel-header">
+            <div className={styles.reconcileHeader}>
               <div className={styles.sectionIntro}>
                 <h2 className={styles.sectionTitle} id="discover-page-size-title">
                   {t(catalog, language, "settings.discoverPageSize.title")}
@@ -420,39 +420,32 @@ export function SettingsPage({
                   {t(catalog, language, "settings.discoverPageSize.description")}
                 </p>
               </div>
-            </div>
-
-            <div className={styles.body}>
-              <label className={`field ${styles.field}`}>
-                <span>{t(catalog, language, "settings.discoverPageSize.label")}</span>
-                <input
-                  autoComplete="off"
-                  className={styles.numberInput}
-                  inputMode="numeric"
-                  name="discover-page-size"
-                  onChange={(event) => setDraftDiscoverPageSize(event.target.value)}
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={draftDiscoverPageSize}
-                />
-              </label>
-              <div className={styles.actions}>
-                <button
-                  className="button button-primary"
-                  disabled={
-                    isSettingsSaving ||
-                    Number.parseInt(draftDiscoverPageSize, 10) === settings.discoverPageSize
-                  }
-                  onClick={() => void handleDiscoverPageSizeApply()}
-                  type="button"
-                >
-                  {t(catalog, language, "settings.discoverPageSize.apply")}
-                </button>
-              </div>
-              <p className={styles.note}>
-                {t(catalog, language, "settings.discoverPageSize.note")}
-              </p>
+              {isSettingsLoading ? null : (
+                <div className={styles.pageSizeControls}>
+                  <input
+                    autoComplete="off"
+                    className={styles.numberInput}
+                    inputMode="numeric"
+                    name="discover-page-size"
+                    onChange={(event) => setDraftDiscoverPageSize(event.target.value)}
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={draftDiscoverPageSize}
+                  />
+                  <button
+                    className="button button-primary"
+                    disabled={
+                      isSettingsSaving ||
+                      Number.parseInt(draftDiscoverPageSize, 10) === settings.discoverPageSize
+                    }
+                    onClick={() => void handleDiscoverPageSizeApply()}
+                    type="button"
+                  >
+                    {t(catalog, language, "settings.discoverPageSize.apply")}
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 

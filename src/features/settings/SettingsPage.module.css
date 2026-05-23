@@ -202,7 +202,14 @@
 }
 
 .numberInput {
+  width: 82px;
+  min-height: 36px;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 6px 7px 6px 10px;
   font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .reconcileHeader {
@@ -211,6 +218,13 @@
   justify-content: space-between;
   gap: 20px;
   padding: 18px;
+}
+
+.pageSizeControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .switchLabel {
