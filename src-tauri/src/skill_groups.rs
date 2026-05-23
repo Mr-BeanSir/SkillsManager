@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::domain::ids::stable_prefixed_id;
+use crate::reconcile::{reconcile_project_record_if_enabled, ReconcileEnvironment};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +49,8 @@ pub enum SkillGroupError {
     GroupNameRequired,
     #[error("sqlite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
+    #[error("{0}")]
+    Reconcile(#[from] crate::reconcile::ReconcileError),
 }
 
 pub fn list_skill_groups(connection: &Connection) -> Result<Vec<SkillGroup>, SkillGroupError> {
@@ -108,6 +111,7 @@ pub fn add_skill_to_group(
         (group_id, skill_id),
     )?;
 
+    sync_skill_to_attached_projects(connection, group_id, skill_id)?;
     get_skill_group(connection, group_id)
 }
 
@@ -122,6 +126,7 @@ pub fn remove_skill_from_group(
         (group_id, skill_id),
     )?;
 
+    remove_orphaned_group_skill_from_projects(connection, group_id, skill_id)?;
     get_skill_group(connection, group_id)
 }
 
@@ -142,7 +147,11 @@ pub fn delete_skill_group_record(id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn add_skill_to_group_record(group_id: String, skill_id: String) -> Result<SkillGroup, String> {
-    with_database(|connection| add_skill_to_group(connection, &group_id, &skill_id))
+    with_database_and_reconcile(|connection, environment| {
+        let group = add_skill_to_group(connection, &group_id, &skill_id)?;
+        reconcile_affected_projects(connection, environment, &group_id)?;
+        Ok(group)
+    })
 }
 
 #[tauri::command]
@@ -150,7 +159,11 @@ pub fn remove_skill_from_group_record(
     group_id: String,
     skill_id: String,
 ) -> Result<SkillGroup, String> {
-    with_database(|connection| remove_skill_from_group(connection, &group_id, &skill_id))
+    with_database_and_reconcile(|connection, environment| {
+        let group = remove_skill_from_group(connection, &group_id, &skill_id)?;
+        reconcile_affected_projects(connection, environment, &group_id)?;
+        Ok(group)
+    })
 }
 
 fn with_database<T>(
@@ -160,6 +173,142 @@ fn with_database<T>(
     let connection = crate::db::open_database(database_path).map_err(|error| error.to_string())?;
 
     action(&connection).map_err(|error| error.to_string())
+}
+
+fn with_database_and_reconcile<T>(
+    action: impl FnOnce(&Connection, &ReconcileEnvironment) -> Result<T, SkillGroupError>,
+) -> Result<T, String> {
+    let database_path = crate::app_paths::database_path().map_err(|error| error.to_string())?;
+    let connection = crate::db::open_database(database_path).map_err(|error| error.to_string())?;
+    let home_dir =
+        dirs::home_dir().ok_or_else(|| "could not resolve the user home directory".to_string())?;
+    let managed_skills_root =
+        crate::app_paths::managed_skills_dir().map_err(|error| error.to_string())?;
+    let environment = ReconcileEnvironment {
+        home_dir,
+        managed_skills_root,
+    };
+
+    action(&connection, &environment).map_err(|error| error.to_string())
+}
+
+fn sync_skill_to_attached_projects(
+    connection: &Connection,
+    group_id: &str,
+    skill_id: &str,
+) -> Result<(), SkillGroupError> {
+    let project_ids = list_project_ids_for_group(connection, group_id)?;
+
+    for project_id in project_ids {
+        let existing = connection
+            .query_row(
+                "SELECT source_origin FROM project_skills
+                WHERE project_id = ?1 AND skill_id = ?2",
+                (&project_id, skill_id),
+                |row| row.get::<_, String>(0),
+            )
+            .ok();
+
+        match existing {
+            Some(ref origin) if origin == "manual" => {
+                connection.execute(
+                    "UPDATE project_skills SET source_origin = 'group', hidden = 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE project_id = ?1 AND skill_id = ?2 AND source_origin = 'manual'",
+                    (&project_id, skill_id),
+                )?;
+            }
+            Some(_) => {}
+            None => {
+                let id = project_skill_id(&project_id, skill_id);
+                connection.execute(
+                    "INSERT INTO project_skills (id, project_id, skill_id, enabled, source_origin, hidden)
+                    VALUES (?1, ?2, ?3, 1, 'group', 0)",
+                    (&id, &project_id, skill_id),
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn remove_orphaned_group_skill_from_projects(
+    connection: &Connection,
+    group_id: &str,
+    skill_id: &str,
+) -> Result<(), SkillGroupError> {
+    let project_ids = list_project_ids_for_group(connection, group_id)?;
+
+    for project_id in project_ids {
+        let still_in_any_enabled_group = connection.query_row(
+            "SELECT COUNT(*) FROM skill_group_skills
+            INNER JOIN project_groups ON project_groups.group_id = skill_group_skills.group_id
+            WHERE project_groups.project_id = ?1
+              AND project_groups.enabled = 1
+              AND skill_group_skills.skill_id = ?2",
+            (&project_id, skill_id),
+            |row| row.get::<_, i64>(0),
+        )? > 0;
+
+        if still_in_any_enabled_group {
+            continue;
+        }
+
+        let hidden_manual = connection
+            .query_row(
+                "SELECT COUNT(*) FROM project_skills
+                WHERE project_id = ?1 AND skill_id = ?2 AND source_origin = 'group' AND hidden = 1",
+                (&project_id, skill_id),
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+
+        if hidden_manual {
+            connection.execute(
+                "UPDATE project_skills SET source_origin = 'manual', hidden = 0, updated_at = CURRENT_TIMESTAMP
+                WHERE project_id = ?1 AND skill_id = ?2",
+                (&project_id, skill_id),
+            )?;
+        } else {
+            connection.execute(
+                "DELETE FROM project_skills
+                WHERE project_id = ?1 AND skill_id = ?2 AND source_origin = 'group'",
+                (&project_id, skill_id),
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+fn reconcile_affected_projects(
+    connection: &Connection,
+    environment: &ReconcileEnvironment,
+    group_id: &str,
+) -> Result<(), SkillGroupError> {
+    let project_ids = list_project_ids_for_group(connection, group_id)?;
+
+    for project_id in project_ids {
+        reconcile_project_record_if_enabled(connection, environment, &project_id)?;
+    }
+
+    Ok(())
+}
+
+fn list_project_ids_for_group(
+    connection: &Connection,
+    group_id: &str,
+) -> Result<Vec<String>, SkillGroupError> {
+    let mut statement = connection.prepare(
+        "SELECT project_id FROM project_groups WHERE group_id = ?1",
+    )?;
+
+    let project_ids = statement
+        .query_map([group_id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(project_ids)
 }
 
 fn get_skill_group(connection: &Connection, id: &str) -> Result<SkillGroup, SkillGroupError> {
@@ -277,9 +426,13 @@ fn stable_id(prefix: &str, value: &str) -> String {
     stable_prefixed_id(prefix, value)
 }
 
+fn project_skill_id(project_id: &str, skill_id: &str) -> String {
+    stable_prefixed_id("project-skill", &format!("{project_id}|{skill_id}"))
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::db::INITIAL_SCHEMA;
+    use crate::db::{INITIAL_SCHEMA, SKILL_SOURCE_TRACKING_SCHEMA};
     use rusqlite::Connection;
 
     use super::{
@@ -560,6 +713,9 @@ mod tests {
         connection
             .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
             .expect("project-only schema should apply");
+        connection
+            .execute_batch(SKILL_SOURCE_TRACKING_SCHEMA)
+            .expect("skill source tracking schema should apply");
         connection
     }
 }

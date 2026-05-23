@@ -9,6 +9,9 @@ export type ProjectSkillRecord = {
   sourceRef: string;
   skillPath: string;
   enabled: boolean;
+  sourceOrigin: string;
+  hidden: boolean;
+  groupName: string | null;
   createdAt: string;
   updatedAt: string;
 };

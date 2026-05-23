@@ -16,6 +16,9 @@ pub struct ProjectSkillRecord {
     pub source_ref: String,
     pub skill_path: String,
     pub enabled: bool,
+    pub source_origin: String,
+    pub hidden: bool,
+    pub group_name: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -42,11 +45,23 @@ pub fn list_project_skills(
             skills.source_ref,
             skills.skill_path,
             project_skills.enabled,
+            project_skills.source_origin,
+            project_skills.hidden,
+            (
+                SELECT skill_groups.name
+                FROM skill_group_skills
+                INNER JOIN project_groups ON project_groups.group_id = skill_group_skills.group_id
+                INNER JOIN skill_groups ON skill_groups.id = skill_group_skills.group_id
+                WHERE project_groups.project_id = project_skills.project_id
+                  AND project_groups.enabled = 1
+                  AND skill_group_skills.skill_id = project_skills.skill_id
+                LIMIT 1
+            ) AS group_name,
             project_skills.created_at,
             project_skills.updated_at
         FROM project_skills
         INNER JOIN skills ON skills.id = project_skills.skill_id
-        WHERE project_skills.project_id = ?1
+        WHERE project_skills.project_id = ?1 AND NOT (project_skills.source_origin = 'manual' AND project_skills.hidden = 1)
         ORDER BY skills.name ASC, skills.source_ref ASC, skills.skill_path ASC",
     )?;
 
@@ -65,8 +80,9 @@ pub fn add_project_skill(
     let id = project_skill_id(project_id, skill_id);
 
     connection.execute(
-        "INSERT OR IGNORE INTO project_skills (id, project_id, skill_id, enabled)
-        VALUES (?1, ?2, ?3, 1)",
+        "INSERT INTO project_skills (id, project_id, skill_id, enabled, source_origin, hidden)
+        VALUES (?1, ?2, ?3, 1, 'manual', 0)
+        ON CONFLICT (project_id, skill_id) DO UPDATE SET hidden = 0, updated_at = CURRENT_TIMESTAMP",
         (&id, project_id, skill_id),
     )?;
 
@@ -252,6 +268,18 @@ fn get_project_skill(
                 skills.source_ref,
                 skills.skill_path,
                 project_skills.enabled,
+                project_skills.source_origin,
+                project_skills.hidden,
+                (
+                    SELECT skill_groups.name
+                    FROM skill_group_skills
+                    INNER JOIN project_groups ON project_groups.group_id = skill_group_skills.group_id
+                    INNER JOIN skill_groups ON skill_groups.id = skill_group_skills.group_id
+                    WHERE project_groups.project_id = project_skills.project_id
+                      AND project_groups.enabled = 1
+                      AND skill_group_skills.skill_id = project_skills.skill_id
+                    LIMIT 1
+                ) AS group_name,
                 project_skills.created_at,
                 project_skills.updated_at
             FROM project_skills
@@ -273,8 +301,11 @@ fn project_skill_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ProjectSk
         source_ref: row.get(5)?,
         skill_path: row.get(6)?,
         enabled: row.get::<_, i64>(7)? == 1,
-        created_at: row.get(8)?,
-        updated_at: row.get(9)?,
+        source_origin: row.get(8)?,
+        hidden: row.get::<_, i64>(9)? == 1,
+        group_name: row.get(10)?,
+        created_at: row.get(11)?,
+        updated_at: row.get(12)?,
     })
 }
 
@@ -297,7 +328,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::db::INITIAL_SCHEMA;
+    use crate::db::{INITIAL_SCHEMA, SKILL_SOURCE_TRACKING_SCHEMA};
     use crate::projects::{create_project, ProjectInput};
 
     const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
@@ -473,6 +504,9 @@ mod tests {
         connection
             .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
             .expect("project-only schema should apply");
+        connection
+            .execute_batch(SKILL_SOURCE_TRACKING_SCHEMA)
+            .expect("skill source tracking schema should apply");
         connection
     }
 

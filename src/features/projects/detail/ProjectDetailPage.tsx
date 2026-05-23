@@ -85,6 +85,8 @@ export function ProjectDetailPage({
   const [pendingSkillToggleIds, setPendingSkillToggleIds] = useState<string[]>([]);
   const [pendingGroupActionIds, setPendingGroupActionIds] = useState<string[]>([]);
   const [pendingCliTargetActionIds, setPendingCliTargetActionIds] = useState<string[]>([]);
+  const [skillSourceFilter, setSkillSourceFilter] = useState<string>("all");
+  const [skillTableSearch, setSkillTableSearch] = useState("");
 
   useEffect(() => {
     let ignore = false;
@@ -158,6 +160,29 @@ export function ProjectDetailPage({
     () => projectGroups.map((group) => group.groupId),
     [projectGroups]
   );
+  const displayedProjectSkills = useMemo(() => {
+    let filtered = projectSkills;
+
+    if (skillSourceFilter === "manual") {
+      filtered = filtered.filter((skill) => skill.sourceOrigin === "manual");
+    } else if (skillSourceFilter !== "all") {
+      const selectedGroup = projectGroups.find((g) => g.groupId === skillSourceFilter);
+      if (selectedGroup) {
+        filtered = filtered.filter((skill) => skill.groupName === selectedGroup.groupName);
+      }
+    }
+
+    const query = skillTableSearch.trim().toLowerCase();
+    if (query) {
+      filtered = filtered.filter((skill) =>
+        [skill.skillName, skill.skillPath, skill.sourceRef, skill.sourceType].some((value) =>
+          value.toLowerCase().includes(query)
+        )
+      );
+    }
+
+    return filtered;
+  }, [projectSkills, skillSourceFilter, skillTableSearch, projectGroups]);
   const skillSelectionItems = useMemo(
     () =>
       buildAttachmentSelectionItems(
@@ -510,6 +535,8 @@ export function ProjectDetailPage({
 
     try {
       await removeProjectGroup(projectId, group.groupId);
+      const relistedSkills = await listProjectSkills(projectId);
+      setProjectSkills(relistedSkills);
       message.success(
         t(catalog, language, "projects.detail.groups.removed", {
           name: group.groupName
@@ -756,29 +783,6 @@ export function ProjectDetailPage({
             </h2>
             <p>{t(catalog, language, "projects.detail.description")}</p>
           </div>
-        </div>
-
-        <div className={styles.tabToolbar}>
-          <div className="tab-list" role="tablist" aria-label={t(catalog, language, "projects.detail.tabs.label")}>
-            {(
-              [
-                ["skills", "projects.detail.tabs.skills"],
-                ["groups", "projects.detail.tabs.groups"],
-                ["targets", "projects.detail.tabs.targets"]
-              ] as const
-            ).map(([tabId, labelKey]) => (
-              <button
-                aria-selected={activeTab === tabId}
-                className={activeTab === tabId ? "tab-button tab-button-active" : "tab-button"}
-                key={tabId}
-                onClick={() => setActiveTab(tabId)}
-                role="tab"
-                type="button"
-              >
-                {t(catalog, language, labelKey)}
-              </button>
-            ))}
-          </div>
           {activeTab === "skills" ? (
             <button
               className="button button-primary"
@@ -814,6 +818,65 @@ export function ProjectDetailPage({
           ) : null}
         </div>
 
+        <div className={styles.tabToolbar}>
+          <div className="tab-list" role="tablist" aria-label={t(catalog, language, "projects.detail.tabs.label")}>
+            {(
+              [
+                ["skills", "projects.detail.tabs.skills"],
+                ["groups", "projects.detail.tabs.groups"],
+                ["targets", "projects.detail.tabs.targets"]
+              ] as const
+            ).map(([tabId, labelKey]) => (
+              <button
+                aria-selected={activeTab === tabId}
+                className={activeTab === tabId ? "tab-button tab-button-active" : "tab-button"}
+                key={tabId}
+                onClick={() => setActiveTab(tabId)}
+                role="tab"
+                type="button"
+              >
+                {t(catalog, language, labelKey)}
+              </button>
+            ))}
+          </div>
+          {activeTab === "skills" ? (
+            <div className={styles.filterBar}>
+              <label className="search-field" htmlFor="project-skills-table-search">
+                <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
+                <input
+                  id="project-skills-table-search"
+                  type="search"
+                  spellCheck={false}
+                  placeholder={t(catalog, language, "projects.detail.skills.searchPlaceholder")}
+                  value={skillTableSearch}
+                  onChange={(e) => setSkillTableSearch(e.target.value)}
+                />
+              </label>
+              <select
+                className={styles.filterSelect}
+                id="project-skills-source-filter"
+                value={skillSourceFilter}
+                onChange={(e) => setSkillSourceFilter(e.target.value)}
+              >
+                <option value="all">
+                  {t(catalog, language, "projects.detail.skills.filter.all")}
+                </option>
+                <option value="manual">
+                  {t(catalog, language, "projects.detail.skills.filter.manual")}
+                </option>
+                <option value="--group--" disabled>
+                  {t(catalog, language, "projects.detail.skills.filter.group")}
+                </option>
+                {projectGroups.map((group) => (
+                  <option key={group.groupId} value={group.groupId}>
+                    {group.groupName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </div>
+
         <hr className={styles.divider} />
 
         {activeTab === "skills" ? (
@@ -824,6 +887,7 @@ export function ProjectDetailPage({
                   <tr>
                     <th scope="col">{t(catalog, language, "projects.detail.skills.table.name")}</th>
                     <th scope="col">{t(catalog, language, "projects.detail.skills.table.source")}</th>
+                    <th scope="col">{t(catalog, language, "projects.detail.skills.table.owner")}</th>
                     <th scope="col">{t(catalog, language, "projects.detail.skills.table.status")}</th>
                     <th scope="col">{t(catalog, language, "projects.detail.skills.table.actions")}</th>
                   </tr>
@@ -831,13 +895,13 @@ export function ProjectDetailPage({
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={4}>{t(catalog, language, "projects.detail.loading")}</td>
+                      <td colSpan={5}>{t(catalog, language, "projects.detail.loading")}</td>
                     </tr>
                   ) : null}
 
-                  {!isLoading && projectSkills.length === 0 ? (
+                  {!isLoading && displayedProjectSkills.length === 0 ? (
                     <tr>
-                      <td colSpan={4}>
+                      <td colSpan={5}>
                         <div className="empty-state">
                           <Stack size={20} weight="bold" aria-hidden="true" />
                           <strong>{t(catalog, language, "projects.detail.skills.empty.title")}</strong>
@@ -847,7 +911,7 @@ export function ProjectDetailPage({
                     </tr>
                   ) : null}
 
-                  {projectSkills.map((skill) => (
+                  {displayedProjectSkills.map((skill) => (
                     <tr key={skill.id}>
                       <td>
                         <strong className="table-primary">{skill.skillName}</strong>
@@ -856,6 +920,22 @@ export function ProjectDetailPage({
                       <td>
                         <span className="table-primary">{skill.sourceType}</span>
                         <span className="table-secondary">{skill.sourceRef}</span>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            skill.sourceOrigin === "group"
+                              ? "status-badge status-global"
+                              : "status-badge status-project"
+                          }
+                        >
+                          {skill.groupName ??
+                            t(
+                              catalog,
+                              language,
+                              "projects.detail.skills.origin.manual"
+                            )}
+                        </span>
                       </td>
                       <td>
                         <span

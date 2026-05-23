@@ -134,6 +134,40 @@ pub fn remove_project_group(
         WHERE project_id = ?1 AND group_id = ?2",
         (project_id, group_id),
     )?;
+
+    let skill_ids = list_group_skill_ids(connection, group_id)?;
+    let other_enabled = list_other_enabled_group_skill_ids(connection, project_id, group_id)?;
+
+    for skill_id in skill_ids {
+        if other_enabled.contains(&skill_id) {
+            continue;
+        }
+
+        let hidden_manual_exists = connection
+            .query_row(
+                "SELECT COUNT(*) FROM project_skills
+                WHERE project_id = ?1 AND skill_id = ?2 AND source_origin = 'group' AND hidden = 1",
+                (project_id, skill_id.as_str()),
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0;
+
+        if hidden_manual_exists {
+            connection.execute(
+                "UPDATE project_skills SET source_origin = 'manual', hidden = 0, updated_at = CURRENT_TIMESTAMP
+                WHERE project_id = ?1 AND skill_id = ?2 AND source_origin = 'group'",
+                (project_id, skill_id.as_str()),
+            )?;
+        } else {
+            connection.execute(
+                "DELETE FROM project_skills
+                WHERE project_id = ?1 AND skill_id = ?2 AND source_origin = 'group'",
+                (project_id, skill_id.as_str()),
+            )?;
+        }
+    }
+
     Ok(())
 }
 
@@ -301,12 +335,33 @@ fn add_missing_group_skills(
     let skill_ids = list_group_skill_ids(connection, group_id)?;
 
     for skill_id in skill_ids {
-        let id = project_skill_id(project_id, &skill_id);
-        connection.execute(
-            "INSERT OR IGNORE INTO project_skills (id, project_id, skill_id, enabled)
-            VALUES (?1, ?2, ?3, 1)",
-            (&id, project_id, skill_id.as_str()),
-        )?;
+        let existing_source = connection
+            .query_row(
+                "SELECT source_origin FROM project_skills
+                WHERE project_id = ?1 AND skill_id = ?2",
+                (project_id, skill_id.as_str()),
+                |row| row.get::<_, String>(0),
+            )
+            .ok();
+
+        match existing_source {
+            Some(ref origin) if origin == "manual" => {
+                connection.execute(
+                    "UPDATE project_skills SET source_origin = 'group', hidden = 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE project_id = ?1 AND skill_id = ?2",
+                    (project_id, skill_id.as_str()),
+                )?;
+            }
+            Some(_) => {}
+            None => {
+                let id = project_skill_id(project_id, &skill_id);
+                connection.execute(
+                    "INSERT INTO project_skills (id, project_id, skill_id, enabled, source_origin, hidden)
+                    VALUES (?1, ?2, ?3, 1, 'group', 0)",
+                    (&id, project_id, skill_id.as_str()),
+                )?;
+            }
+        }
     }
 
     Ok(())
@@ -365,9 +420,10 @@ mod tests {
         add_project_group, disable_project_group, enable_project_group, list_project_groups,
         remove_project_group,
     };
+    use crate::project_skills::list_project_skills;
     use rusqlite::Connection;
 
-    use crate::db::INITIAL_SCHEMA;
+    use crate::db::{INITIAL_SCHEMA, SKILL_SOURCE_TRACKING_SCHEMA};
     use crate::projects::{create_project, ProjectInput};
 
     const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
@@ -452,7 +508,7 @@ mod tests {
     }
 
     #[test]
-    fn removing_project_group_keeps_project_skills() {
+    fn removing_project_group_cleans_up_group_skills() {
         let connection = open_project_only_in_memory_database();
         let project = seed_project(&connection);
         seed_skill(&connection, "skill-one", "grill-with-docs");
@@ -466,7 +522,46 @@ mod tests {
             list_project_groups(&connection, &project.id).expect("project groups should list");
         assert!(listed.is_empty());
         assert_eq!(count_rows(&connection, "project_groups"), 0);
-        assert_eq!(count_rows(&connection, "project_skills"), 1);
+        assert_eq!(count_rows(&connection, "project_skills"), 0);
+    }
+
+    #[test]
+    fn removing_project_group_restores_hidden_manual_skill() {
+        let connection = open_project_only_in_memory_database();
+        let project = seed_project(&connection);
+        seed_skill(&connection, "skill-one", "grill-with-docs");
+        seed_group_with_skills(&connection, "group-one", "Frontend", &["skill-one"]);
+
+        // Manually add skill first
+        connection
+            .execute(
+                "INSERT INTO project_skills (id, project_id, skill_id, enabled, source_origin, hidden)
+                VALUES (?1, ?2, ?3, 1, 'manual', 0)",
+                ("ps-manual", &project.id, "skill-one"),
+            )
+            .expect("manual project skill should insert");
+
+        // Add group with same skill - should hide manual record
+        add_project_group(&connection, &project.id, "group-one").expect("project group should add");
+
+        let hidden: i64 = connection
+            .query_row(
+                "SELECT hidden FROM project_skills WHERE project_id = ?1 AND skill_id = ?2 AND source_origin = 'group'",
+                (&project.id, "skill-one"),
+                |row| row.get(0),
+            )
+            .expect("hidden query should work");
+        assert_eq!(hidden, 1);
+
+        // Remove group - should restore manual record
+        remove_project_group(&connection, &project.id, "group-one")
+            .expect("project group should remove");
+
+        let listed =
+            list_project_skills(&connection, &project.id).expect("project skills should list");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].source_origin, "manual");
+        assert!(!listed[0].hidden);
     }
 
     fn seed_project(connection: &Connection) -> crate::projects::ProjectRecord {
@@ -555,6 +650,9 @@ mod tests {
         connection
             .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
             .expect("project-only schema should apply");
+        connection
+            .execute_batch(SKILL_SOURCE_TRACKING_SCHEMA)
+            .expect("skill source tracking schema should apply");
         connection
     }
 }

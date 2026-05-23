@@ -8,6 +8,8 @@ pub(crate) const LEGACY_SCHEMA: &str = include_str!("../migrations/0001_initial.
 pub(crate) const INITIAL_SCHEMA: &str = LEGACY_SCHEMA;
 pub(crate) const PROJECT_ONLY_SCHEMA: &str =
     include_str!("../migrations/0002_project_only_refactor.sql");
+pub(crate) const SKILL_SOURCE_TRACKING_SCHEMA: &str =
+    include_str!("../migrations/0003_skill_source_tracking.sql");
 pub(crate) const CURRENT_SCHEMA: &str = r#"
 PRAGMA foreign_keys = ON;
 
@@ -61,6 +63,8 @@ CREATE TABLE IF NOT EXISTS project_skills (
   project_id TEXT NOT NULL,
   skill_id TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  source_origin TEXT NOT NULL DEFAULT 'manual',
+  hidden INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (project_id, skill_id),
@@ -131,6 +135,7 @@ CREATE TABLE IF NOT EXISTS project_cli_targets (
 
 CREATE INDEX IF NOT EXISTS idx_project_skills_project_id ON project_skills(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_skills_skill_id ON project_skills(skill_id);
+CREATE INDEX IF NOT EXISTS idx_project_skills_hidden ON project_skills(project_id, hidden);
 CREATE INDEX IF NOT EXISTS idx_project_groups_project_id ON project_groups(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_groups_group_id ON project_groups(group_id);
 CREATE INDEX IF NOT EXISTS idx_project_cli_targets_project_id ON project_cli_targets(project_id);
@@ -159,6 +164,22 @@ pub fn open_in_memory_database() -> Result<Connection, DbError> {
     Ok(connection)
 }
 
+fn backfill_source_origin(connection: &Connection) -> Result<(), DbError> {
+    if has_table(connection, "skill_group_skills")? {
+        connection.execute_batch(
+            "UPDATE project_skills
+            SET source_origin = 'group'
+            WHERE EXISTS (
+                SELECT 1 FROM skill_group_skills sgs
+                INNER JOIN project_groups pg ON pg.group_id = sgs.group_id
+                WHERE pg.project_id = project_skills.project_id
+                  AND sgs.skill_id = project_skills.skill_id
+            );",
+        )?;
+    }
+    Ok(())
+}
+
 fn run_migrations(connection: &Connection, initialize_current_schema: bool) -> Result<(), DbError> {
     if initialize_current_schema {
         connection.execute_batch(CURRENT_SCHEMA)?;
@@ -177,6 +198,10 @@ fn run_migrations(connection: &Connection, initialize_current_schema: bool) -> R
         && has_project_skills
         && has_project_cli_targets
     {
+        if !column_exists(connection, "project_skills", "source_origin")? {
+            connection.execute_batch(SKILL_SOURCE_TRACKING_SCHEMA)?;
+            backfill_source_origin(connection)?;
+        }
         return Ok(());
     }
 
@@ -186,6 +211,9 @@ fn run_migrations(connection: &Connection, initialize_current_schema: bool) -> R
         || has_project_skills
         || has_project_cli_targets
     {
+        if has_project_skills && !column_exists(connection, "project_skills", "source_origin")? {
+            connection.execute_batch(SKILL_SOURCE_TRACKING_SCHEMA)?;
+        }
         connection.execute_batch(CURRENT_SCHEMA)?;
         return Ok(());
     }

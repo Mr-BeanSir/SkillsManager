@@ -50,6 +50,35 @@
   padding: 18px;
 }
 
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.filterBar .search-field {
+  flex: 1;
+}
+
+.filterSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid #eaeaea;
+  border-radius: 6px;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23787774' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  color: #111111;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.filterSelect:focus {
+  outline: 2px solid #111111;
+  outline-offset: -1px;
+}
+
 .detailSection {
   display: grid;
   align-content: start;
