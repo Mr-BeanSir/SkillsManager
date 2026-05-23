@@ -1,4 +1,4 @@
-import type { SkillGroup } from "./groupsApi";
+import type { SkillGroup } from "../groupsApi";
 
 export function findGroupById(groups: SkillGroup[], groupId: string | null) {
   if (!groupId) {

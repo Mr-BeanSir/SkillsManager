@@ -1,7 +1,9 @@
 import { Check, NotePencil, Plus, Stack, Trash } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
-import { readSettings } from "../settings/settingsApi";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { ConfirmDialog } from "../../../shared/components/ConfirmDialog";
+import { FormDialog } from "../../../shared/components/FormDialog";
+import { readSettings } from "../../settings/settingsApi";
 import { findGroupById } from "./GroupsPage.model";
 import styles from "./GroupsPage.module.css";
 import {
@@ -9,7 +11,7 @@ import {
   deleteSkillGroup,
   listSkillGroups,
   type SkillGroup
-} from "./groupsApi";
+} from "../groupsApi";
 
 type GroupsPageProps = {
   catalog: I18nCatalog;
@@ -323,92 +325,49 @@ export function GroupsPage({
       </section>
 
       {isCreateOpen ? (
-        <div className="modal-backdrop" onClick={() => setIsCreateOpen(false)}>
-          <div
-            aria-labelledby="groups-create-title"
-            aria-modal="true"
-            className="modal-panel modal-panel-compact"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="groups-create-title">{t(catalog, language, "groups.form.title")}</h2>
-                <p>{t(catalog, language, "groups.form.description")}</p>
-              </div>
-            </div>
-            <form className={styles.createModalForm} onSubmit={handleCreateGroup}>
-              <label className="field">
-                <span>{t(catalog, language, "groups.form.name")}</span>
-                <input
-                  autoComplete="off"
-                  name="group-name"
-                  onChange={(event) => setGroupName(event.target.value)}
-                  placeholder={t(catalog, language, "groups.form.namePlaceholder")}
-                  required
-                  value={groupName}
-                />
-              </label>
-              <div className="modal-actions modal-actions-pad">
-                <button
-                  className="button button-secondary"
-                  onClick={() => setIsCreateOpen(false)}
-                  type="button"
-                >
-                  {t(catalog, language, "groups.form.cancel")}
-                </button>
-                <button className="button button-primary" disabled={isSaving} type="submit">
-                  <Check size={16} weight="bold" aria-hidden="true" />
-                  {isSaving
-                    ? t(catalog, language, "groups.form.saving")
-                    : t(catalog, language, "groups.form.create")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <FormDialog
+          cancelLabel={t(catalog, language, "groups.form.cancel")}
+          description={t(catalog, language, "groups.form.description")}
+          disabled={isSaving}
+          formClassName={styles.createModalForm}
+          submitIcon={<Check size={16} weight="bold" aria-hidden="true" />}
+          submitLabel={
+            isSaving
+              ? t(catalog, language, "groups.form.saving")
+              : t(catalog, language, "groups.form.create")
+          }
+          title={t(catalog, language, "groups.form.title")}
+          onCancel={() => setIsCreateOpen(false)}
+          onSubmit={handleCreateGroup}
+        >
+          <label className="field">
+            <span>{t(catalog, language, "groups.form.name")}</span>
+            <input
+              autoComplete="off"
+              name="group-name"
+              onChange={(event) => setGroupName(event.target.value)}
+              placeholder={t(catalog, language, "groups.form.namePlaceholder")}
+              required
+              value={groupName}
+            />
+          </label>
+        </FormDialog>
       ) : null}
 
       {pendingDeleteGroup ? (
-        <div className="modal-backdrop" onClick={closeDeleteDialog}>
-          <div
-            aria-labelledby="groups-delete-title"
-            aria-modal="true"
-            className="modal-panel modal-panel-compact"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 className={styles.groupsDeleteTitle} id="groups-delete-title">{t(catalog, language, "groups.detail.delete")}</h2>
-                <p>
-                  {t(catalog, language, "groups.deleteConfirm", {
-                    name: pendingDeleteGroup.name
-                  })}
-                </p>
-              </div>
-            </div>
-            <div className="modal-actions modal-actions-pad">
-              <button
-                className="button button-secondary"
-                disabled={isSaving}
-                onClick={closeDeleteDialog}
-                type="button"
-              >
-                {t(catalog, language, "groups.form.cancel")}
-              </button>
-              <button
-                className="button button-danger"
-                disabled={isSaving}
-                onClick={() => void confirmDeleteGroup()}
-                type="button"
-              >
-                <Trash size={16} weight="bold" aria-hidden="true" />
-                {t(catalog, language, "groups.detail.delete")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          cancelLabel={t(catalog, language, "groups.form.cancel")}
+          confirmIcon={<Trash size={16} weight="bold" aria-hidden="true" />}
+          confirmLabel={t(catalog, language, "groups.detail.delete")}
+          danger
+          description={t(catalog, language, "groups.deleteConfirm", {
+            name: pendingDeleteGroup.name
+          })}
+          disabled={isSaving}
+          title={t(catalog, language, "groups.detail.delete")}
+          onCancel={closeDeleteDialog}
+          onConfirm={() => void confirmDeleteGroup()}
+        />
       ) : null}
     </section>
   );

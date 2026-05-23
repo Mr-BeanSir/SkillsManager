@@ -1,6 +1,7 @@
 import { ArrowLeft, NotePencil, Plus, Trash, X } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useState } from "react";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { FormDialog } from "../../../shared/components/FormDialog";
 import styles from "./CliTargetsPage.module.css";
 import {
   createCliTarget,
@@ -9,7 +10,7 @@ import {
   updateCliTarget,
   type CliTargetInput,
   type CliTargetRecord
-} from "./cliTargetsApi";
+} from "../cliTargetsApi";
 
 type CliTargetsPageProps = {
   catalog: I18nCatalog;
@@ -298,81 +299,53 @@ export function CliTargetsPage({
       </div>
 
       {isDraftOpen ? (
-        <div className="modal-backdrop" onClick={closeDraftDialog}>
-          <div
-            aria-labelledby="cli-targets-form-title"
-            aria-modal="true"
-            className="modal-panel modal-panel-compact"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="cli-targets-form-title">
-                  {editingTarget
-                    ? t(catalog, language, "settings.cliTargets.form.editTitle")
-                    : t(catalog, language, "settings.cliTargets.form.addTitle")}
-                </h2>
-                <p>{t(catalog, language, "settings.cliTargets.form.description")}</p>
-              </div>
-              <button
-                aria-label={t(catalog, language, "settings.cliTargets.form.close")}
-                className="icon-button"
-                disabled={isSaving}
-                onClick={closeDraftDialog}
-                type="button"
-              >
-                <X size={18} weight="bold" aria-hidden="true" />
-              </button>
-            </div>
+        <FormDialog
+          cancelLabel={t(catalog, language, "settings.cliTargets.form.cancel")}
+          closeLabel={t(catalog, language, "settings.cliTargets.form.close")}
+          description={t(catalog, language, "settings.cliTargets.form.description")}
+          disabled={isSaving}
+          formClassName={styles.modalForm}
+          submitLabel={
+            editingTarget
+              ? t(catalog, language, "settings.cliTargets.form.save")
+              : t(catalog, language, "settings.cliTargets.form.add")
+          }
+          title={
+            editingTarget
+              ? t(catalog, language, "settings.cliTargets.form.editTitle")
+              : t(catalog, language, "settings.cliTargets.form.addTitle")
+          }
+          onCancel={closeDraftDialog}
+          onSubmit={handleSave}
+        >
+          <label className="field">
+            <span>{t(catalog, language, "settings.cliTargets.form.name")}</span>
+            <input
+              autoComplete="off"
+              name="cli-target-name"
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, displayName: event.target.value }))
+              }
+              placeholder={t(catalog, language, "settings.cliTargets.form.namePlaceholder")}
+              required
+              value={draft.displayName}
+            />
+          </label>
 
-            <form className={styles.modalForm} onSubmit={handleSave}>
-              <label className="field">
-                <span>{t(catalog, language, "settings.cliTargets.form.name")}</span>
-                <input
-                  autoComplete="off"
-                  name="cli-target-name"
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, displayName: event.target.value }))
-                  }
-                  placeholder={t(catalog, language, "settings.cliTargets.form.namePlaceholder")}
-                  required
-                  value={draft.displayName}
-                />
-              </label>
-
-              <label className="field">
-                <span>{t(catalog, language, "settings.cliTargets.form.path")}</span>
-                <input
-                  autoComplete="off"
-                  name="cli-target-relative-path"
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, relativePath: event.target.value }))
-                  }
-                  placeholder={t(catalog, language, "settings.cliTargets.form.pathPlaceholder")}
-                  required
-                  value={draft.relativePath}
-                />
-              </label>
-
-              <div className={styles.modalActions}>
-                <button
-                  className="button button-secondary"
-                  disabled={isSaving}
-                  onClick={closeDraftDialog}
-                  type="button"
-                >
-                  {t(catalog, language, "settings.cliTargets.form.cancel")}
-                </button>
-                <button className="button button-primary" disabled={isSaving} type="submit">
-                  {editingTarget
-                    ? t(catalog, language, "settings.cliTargets.form.save")
-                    : t(catalog, language, "settings.cliTargets.form.add")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+          <label className="field">
+            <span>{t(catalog, language, "settings.cliTargets.form.path")}</span>
+            <input
+              autoComplete="off"
+              name="cli-target-relative-path"
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, relativePath: event.target.value }))
+              }
+              placeholder={t(catalog, language, "settings.cliTargets.form.pathPlaceholder")}
+              required
+              value={draft.relativePath}
+            />
+          </label>
+        </FormDialog>
       ) : null}
     </section>
   );

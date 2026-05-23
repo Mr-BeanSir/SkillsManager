@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { Modal } from "../../../shared/components/Modal";
 import styles from "./SettingsPage.module.css";
 import {
   readSettings,
@@ -14,7 +15,7 @@ import {
   type SettingsRecord,
   type UpdateInfo,
   type DownloadProgress
-} from "./settingsApi";
+} from "../settingsApi";
 
 type SettingsPageProps = {
   catalog: I18nCatalog;
@@ -566,39 +567,13 @@ export function SettingsPage({
       </div>
 
       {showUpdateDialog && updateInfo ? (
-        <div className="modal-backdrop" onClick={() => { if (!isDownloading) setShowUpdateDialog(false); }}>
-          <div
-            aria-labelledby="update-dialog-title"
-            aria-modal="true"
-            className="modal-panel"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="update-dialog-title">
-                  {t(catalog, language, "settings.update.dialogTitle", { version: updateInfo.version })}
-                </h2>
-              </div>
-            </div>
-            <div className={styles.updateDialogBody}>
-              <div className={styles.updateReleaseBody}>
-                {updateInfo.body || t(catalog, language, "settings.update.noReleaseNotes")}
-              </div>
-
-              {isDownloading && downloadProgress ? (
-                <div className={styles.progressBar}>
-                  <div
-                    className={styles.progressFill}
-                    style={{ width: `${downloadProgress.percent}%` }}
-                  />
-                  <span className={styles.progressLabel}>
-                    {downloadProgress.percent}%
-                  </span>
-                </div>
-              ) : null}
-            </div>
-            <div className="modal-actions modal-actions-pad">
+        <Modal
+          compact={false}
+          closeOnBackdropClick={!isDownloading}
+          title={t(catalog, language, "settings.update.dialogTitle", { version: updateInfo.version })}
+          onClose={() => setShowUpdateDialog(false)}
+          actions={
+            <>
               <button
                 className="button button-secondary"
                 disabled={isDownloading}
@@ -617,9 +592,27 @@ export function SettingsPage({
                   ? t(catalog, language, "settings.update.downloading")
                   : t(catalog, language, "settings.update.installButton")}
               </button>
+            </>
+          }
+        >
+          <div className={styles.updateDialogBody}>
+            <div className={styles.updateReleaseBody}>
+              {updateInfo.body || t(catalog, language, "settings.update.noReleaseNotes")}
             </div>
+
+            {isDownloading && downloadProgress ? (
+              <div className={styles.progressBar}>
+                <div
+                  className={styles.progressFill}
+                  style={{ width: `${downloadProgress.percent}%` }}
+                />
+                <span className={styles.progressLabel}>
+                  {downloadProgress.percent}%
+                </span>
+              </div>
+            ) : null}
           </div>
-        </div>
+        </Modal>
       ) : null}
 
     </section>

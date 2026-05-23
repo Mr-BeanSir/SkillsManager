@@ -8,10 +8,11 @@ import {
   Trash
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { Modal } from "../../../shared/components/Modal";
 import styles from "./ProjectDetailPage.module.css";
-import { listSkillGroups, type SkillGroup } from "../groups/groupsApi";
-import { listInstalledSkills, type InstalledSkill } from "../skills/skillsApi";
+import { listSkillGroups, type SkillGroup } from "../../groups/groupsApi";
+import { listInstalledSkills, type InstalledSkill } from "../../skills/skillsApi";
 import {
   buildAttachmentSelectionItems,
   collectPendingAttachmentIds
@@ -37,7 +38,7 @@ import {
   removeProjectSkill,
   type ProjectGroupRecord,
   type ProjectSkillRecord
-} from "./projectDetailApi";
+} from "../projectDetailApi";
 import {
   addProjectCliTarget,
   listAvailableCliTargets,
@@ -45,8 +46,8 @@ import {
   removeProjectCliTarget,
   type CliTargetRecord,
   type ProjectCliTargetRecord
-} from "./projectCliTargetsApi";
-import { getProject, openProjectDirectory, type ProjectRecord } from "./projectsApi";
+} from "../projectCliTargetsApi";
+import { getProject, openProjectDirectory, type ProjectRecord } from "../projectsApi";
 
 type ProjectDetailPageProps = {
   catalog: I18nCatalog;
@@ -1132,83 +1133,13 @@ export function ProjectDetailPage({
       </section>
 
       {isSkillDialogOpen ? (
-        <div className="modal-backdrop" onClick={closeSkillDialog}>
-          <div
-            aria-labelledby="project-skill-dialog-title"
-            aria-modal="true"
-            className={`modal-panel modal-panel-compact ${styles.selectionModal}`}
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="project-skill-dialog-title">
-                  {t(catalog, language, "projects.detail.skills.dialog.title")}
-                </h2>
-                <p>{t(catalog, language, "projects.detail.skills.dialog.copy")}</p>
-              </div>
-            </div>
-            <div className={styles.selectionDialogBody}>
-              <div className={styles.selectionShell}>
-                <label className="search-field" htmlFor="project-skill-search">
-                  <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
-                  <input
-                    id="project-skill-search"
-                    name="project-skill-search"
-                    onChange={(event) => setSkillSearchQuery(event.target.value)}
-                    placeholder={t(catalog, language, "projects.detail.skills.dialog.searchPlaceholder")}
-                    spellCheck={false}
-                    type="search"
-                    value={skillSearchQuery}
-                  />
-                </label>
-
-                {skillSelectionItems.length === 0 ? (
-                  <div className={`empty-state ${styles.selectionEmptyState}`}>
-                    <strong>{t(catalog, language, "projects.detail.skills.dialog.empty")}</strong>
-                  </div>
-                ) : filteredSkillSelectionItems.length === 0 ? (
-                  <div className={`empty-state ${styles.selectionEmptyState}`}>
-                    <strong>{t(catalog, language, "projects.detail.skills.dialog.searchEmpty")}</strong>
-                  </div>
-                ) : (
-                  <div className={styles.selectionList} role="list">
-                    {filteredSkillSelectionItems.map((item) => {
-                      const installedSkill = installedSkills.find((skill) => skill.id === item.id);
-
-                      return (
-                        <label
-                          className={
-                            item.disabled
-                              ? `${styles.selectionRow} ${styles.selectionRowDisabled}`
-                              : styles.selectionRow
-                          }
-                          key={item.id}
-                        >
-                          <input
-                            checked={skillSelectionIds.includes(item.id)}
-                            disabled={item.disabled}
-                            name="project-skill-selection"
-                            onChange={() => toggleSkillSelection(item.id)}
-                            type="checkbox"
-                            value={item.id}
-                          />
-                          <span>
-                            <strong>{item.label}</strong>
-                            <small>
-                              {item.disabled
-                                ? t(catalog, language, "projects.detail.skills.dialog.attached")
-                                : installedSkill?.skillPath ?? installedSkill?.sourceRef ?? ""}
-                            </small>
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="modal-actions modal-actions-pad">
+        <Modal
+          className={styles.selectionModal}
+          description={t(catalog, language, "projects.detail.skills.dialog.copy")}
+          title={t(catalog, language, "projects.detail.skills.dialog.title")}
+          onClose={closeSkillDialog}
+          actions={
+            <>
               <button className="button button-secondary" onClick={closeSkillDialog} type="button">
                 {t(catalog, language, "projects.form.cancel")}
               </button>
@@ -1220,54 +1151,38 @@ export function ProjectDetailPage({
               >
                 {t(catalog, language, "projects.detail.skills.add")}
               </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </>
+          }
+        >
+          <div className={styles.selectionDialogBody}>
+            <div className={styles.selectionShell}>
+              <label className="search-field" htmlFor="project-skill-search">
+                <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
+                <input
+                  id="project-skill-search"
+                  name="project-skill-search"
+                  onChange={(event) => setSkillSearchQuery(event.target.value)}
+                  placeholder={t(catalog, language, "projects.detail.skills.dialog.searchPlaceholder")}
+                  spellCheck={false}
+                  type="search"
+                  value={skillSearchQuery}
+                />
+              </label>
 
-      {isGroupDialogOpen ? (
-        <div className="modal-backdrop" onClick={closeGroupDialog}>
-          <div
-            aria-labelledby="project-group-dialog-title"
-            aria-modal="true"
-            className={`modal-panel modal-panel-compact ${styles.selectionModal}`}
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="project-group-dialog-title">
-                  {t(catalog, language, "projects.detail.groups.dialog.title")}
-                </h2>
-                <p>{t(catalog, language, "projects.detail.groups.dialog.copy")}</p>
-              </div>
-            </div>
-            <div className={styles.selectionDialogBody}>
-              <div className={styles.selectionShell}>
-                <label className="search-field" htmlFor="project-group-search">
-                  <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
-                  <input
-                    id="project-group-search"
-                    name="project-group-search"
-                    onChange={(event) => setGroupSearchQuery(event.target.value)}
-                    placeholder={t(catalog, language, "projects.detail.groups.dialog.searchPlaceholder")}
-                    spellCheck={false}
-                    type="search"
-                    value={groupSearchQuery}
-                  />
-                </label>
+              {skillSelectionItems.length === 0 ? (
+                <div className={`empty-state ${styles.selectionEmptyState}`}>
+                  <strong>{t(catalog, language, "projects.detail.skills.dialog.empty")}</strong>
+                </div>
+              ) : filteredSkillSelectionItems.length === 0 ? (
+                <div className={`empty-state ${styles.selectionEmptyState}`}>
+                  <strong>{t(catalog, language, "projects.detail.skills.dialog.searchEmpty")}</strong>
+                </div>
+              ) : (
+                <div className={styles.selectionList} role="list">
+                  {filteredSkillSelectionItems.map((item) => {
+                    const installedSkill = installedSkills.find((skill) => skill.id === item.id);
 
-                {groupSelectionItems.length === 0 ? (
-                  <div className={`empty-state ${styles.selectionEmptyState}`}>
-                    <strong>{t(catalog, language, "projects.detail.groups.dialog.empty")}</strong>
-                  </div>
-                ) : filteredGroupSelectionItems.length === 0 ? (
-                  <div className={`empty-state ${styles.selectionEmptyState}`}>
-                    <strong>{t(catalog, language, "projects.detail.groups.dialog.searchEmpty")}</strong>
-                  </div>
-                ) : (
-                  <div className={styles.selectionList} role="list">
-                    {filteredGroupSelectionItems.map((item) => (
+                    return (
                       <label
                         className={
                           item.disabled
@@ -1277,10 +1192,10 @@ export function ProjectDetailPage({
                         key={item.id}
                       >
                         <input
-                          checked={groupSelectionIds.includes(item.id)}
+                          checked={skillSelectionIds.includes(item.id)}
                           disabled={item.disabled}
-                          name="project-group-selection"
-                          onChange={() => toggleGroupSelection(item.id)}
+                          name="project-skill-selection"
+                          onChange={() => toggleSkillSelection(item.id)}
                           type="checkbox"
                           value={item.id}
                         />
@@ -1288,17 +1203,28 @@ export function ProjectDetailPage({
                           <strong>{item.label}</strong>
                           <small>
                             {item.disabled
-                              ? t(catalog, language, "projects.detail.groups.dialog.attached")
-                              : t(catalog, language, "projects.detail.groups.description")}
+                              ? t(catalog, language, "projects.detail.skills.dialog.attached")
+                              : installedSkill?.skillPath ?? installedSkill?.sourceRef ?? ""}
                           </small>
                         </span>
                       </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <div className="modal-actions modal-actions-pad">
+          </div>
+        </Modal>
+      ) : null}
+
+      {isGroupDialogOpen ? (
+        <Modal
+          className={styles.selectionModal}
+          description={t(catalog, language, "projects.detail.groups.dialog.copy")}
+          title={t(catalog, language, "projects.detail.groups.dialog.title")}
+          onClose={closeGroupDialog}
+          actions={
+            <>
               <button className="button button-secondary" onClick={closeGroupDialog} type="button">
                 {t(catalog, language, "projects.form.cancel")}
               </button>
@@ -1310,73 +1236,76 @@ export function ProjectDetailPage({
               >
                 {t(catalog, language, "projects.detail.groups.add")}
               </button>
+            </>
+          }
+        >
+          <div className={styles.selectionDialogBody}>
+            <div className={styles.selectionShell}>
+              <label className="search-field" htmlFor="project-group-search">
+                <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
+                <input
+                  id="project-group-search"
+                  name="project-group-search"
+                  onChange={(event) => setGroupSearchQuery(event.target.value)}
+                  placeholder={t(catalog, language, "projects.detail.groups.dialog.searchPlaceholder")}
+                  spellCheck={false}
+                  type="search"
+                  value={groupSearchQuery}
+                />
+              </label>
+
+              {groupSelectionItems.length === 0 ? (
+                <div className={`empty-state ${styles.selectionEmptyState}`}>
+                  <strong>{t(catalog, language, "projects.detail.groups.dialog.empty")}</strong>
+                </div>
+              ) : filteredGroupSelectionItems.length === 0 ? (
+                <div className={`empty-state ${styles.selectionEmptyState}`}>
+                  <strong>{t(catalog, language, "projects.detail.groups.dialog.searchEmpty")}</strong>
+                </div>
+              ) : (
+                <div className={styles.selectionList} role="list">
+                  {filteredGroupSelectionItems.map((item) => (
+                    <label
+                      className={
+                        item.disabled
+                          ? `${styles.selectionRow} ${styles.selectionRowDisabled}`
+                          : styles.selectionRow
+                      }
+                      key={item.id}
+                    >
+                      <input
+                        checked={groupSelectionIds.includes(item.id)}
+                        disabled={item.disabled}
+                        name="project-group-selection"
+                        onChange={() => toggleGroupSelection(item.id)}
+                        type="checkbox"
+                        value={item.id}
+                      />
+                      <span>
+                        <strong>{item.label}</strong>
+                        <small>
+                          {item.disabled
+                            ? t(catalog, language, "projects.detail.groups.dialog.attached")
+                            : t(catalog, language, "projects.detail.groups.description")}
+                        </small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        </Modal>
       ) : null}
 
       {isCliTargetDialogOpen ? (
-        <div className="modal-backdrop" onClick={closeCliTargetDialog}>
-          <div
-            aria-labelledby="project-cli-target-dialog-title"
-            aria-modal="true"
-            className={`modal-panel modal-panel-compact ${styles.selectionModal}`}
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="project-cli-target-dialog-title">
-                  {t(catalog, language, "projects.detail.targets.dialog.title")}
-                </h2>
-                <p>{t(catalog, language, "projects.detail.targets.dialog.copy")}</p>
-              </div>
-            </div>
-            <div className={styles.selectionDialogBody}>
-              <div className={styles.selectionShell}>
-                <label className="search-field" htmlFor="project-cli-target-search">
-                  <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
-                  <input
-                    id="project-cli-target-search"
-                    name="project-cli-target-search"
-                    onChange={(event) => setCliTargetSearchQuery(event.target.value)}
-                    placeholder={t(catalog, language, "projects.detail.targets.dialog.searchPlaceholder")}
-                    spellCheck={false}
-                    type="search"
-                    value={cliTargetSearchQuery}
-                  />
-                </label>
-
-                {addableCliTargets.length === 0 ? (
-                  <div className={`empty-state ${styles.selectionEmptyState}`}>
-                    <strong>{t(catalog, language, "projects.detail.targets.dialog.empty")}</strong>
-                  </div>
-                ) : filteredCliTargets.length === 0 ? (
-                  <div className={`empty-state ${styles.selectionEmptyState}`}>
-                    <strong>{t(catalog, language, "projects.detail.targets.dialog.searchEmpty")}</strong>
-                  </div>
-                ) : (
-                  <div className={styles.selectionList} role="list">
-                    {filteredCliTargets.map((cliTarget) => (
-                      <label className={styles.selectionRow} key={cliTarget.id}>
-                        <input
-                          checked={cliTargetSelectionIds.includes(cliTarget.id)}
-                          name="project-cli-target-selection"
-                          onChange={() => toggleCliTargetSelection(cliTarget.id)}
-                          type="checkbox"
-                          value={cliTarget.id}
-                        />
-                        <span>
-                          <strong>{cliTarget.displayName}</strong>
-                          <small>{cliTarget.relativePath}</small>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="modal-actions modal-actions-pad">
+        <Modal
+          className={styles.selectionModal}
+          description={t(catalog, language, "projects.detail.targets.dialog.copy")}
+          title={t(catalog, language, "projects.detail.targets.dialog.title")}
+          onClose={closeCliTargetDialog}
+          actions={
+            <>
               <button className="button button-secondary" onClick={closeCliTargetDialog} type="button">
                 {t(catalog, language, "projects.form.cancel")}
               </button>
@@ -1388,9 +1317,54 @@ export function ProjectDetailPage({
               >
                 {t(catalog, language, "projects.detail.targets.add")}
               </button>
+            </>
+          }
+        >
+          <div className={styles.selectionDialogBody}>
+            <div className={styles.selectionShell}>
+              <label className="search-field" htmlFor="project-cli-target-search">
+                <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
+                <input
+                  id="project-cli-target-search"
+                  name="project-cli-target-search"
+                  onChange={(event) => setCliTargetSearchQuery(event.target.value)}
+                  placeholder={t(catalog, language, "projects.detail.targets.dialog.searchPlaceholder")}
+                  spellCheck={false}
+                  type="search"
+                  value={cliTargetSearchQuery}
+                />
+              </label>
+
+              {addableCliTargets.length === 0 ? (
+                <div className={`empty-state ${styles.selectionEmptyState}`}>
+                  <strong>{t(catalog, language, "projects.detail.targets.dialog.empty")}</strong>
+                </div>
+              ) : filteredCliTargets.length === 0 ? (
+                <div className={`empty-state ${styles.selectionEmptyState}`}>
+                  <strong>{t(catalog, language, "projects.detail.targets.dialog.searchEmpty")}</strong>
+                </div>
+              ) : (
+                <div className={styles.selectionList} role="list">
+                  {filteredCliTargets.map((cliTarget) => (
+                    <label className={styles.selectionRow} key={cliTarget.id}>
+                      <input
+                        checked={cliTargetSelectionIds.includes(cliTarget.id)}
+                        name="project-cli-target-selection"
+                        onChange={() => toggleCliTargetSelection(cliTarget.id)}
+                        type="checkbox"
+                        value={cliTarget.id}
+                      />
+                      <span>
+                        <strong>{cliTarget.displayName}</strong>
+                        <small>{cliTarget.relativePath}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        </Modal>
       ) : null}
     </section>
   );

@@ -1,8 +1,9 @@
 import { ArrowLeft, CaretDown, CaretRight, FloppyDisk, FileText, Folder } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import type { AppPageState } from "../../appPageState";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
+import type { AppPageState } from "../../../app/appPageState";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { ConfirmDialog } from "../../../shared/components/ConfirmDialog";
 import styles from "./SkillDetailPage.module.css";
 import {
   DEFAULT_APP_WINDOW_WIDTH,
@@ -15,7 +16,7 @@ import {
   type SkillDetailRecord,
   type SkillFileTreeEntry,
   writeSkillFile
-} from "./skillDetailApi";
+} from "../skillDetailApi";
 
 type SkillDetailPageProps = {
   catalog: I18nCatalog;
@@ -425,40 +426,14 @@ export function SkillDetailPage({
       )}
 
       {pendingPath ? (
-        <div className="modal-backdrop" onClick={() => setPendingPath(null)}>
-          <div
-            aria-labelledby="skill-discard-title"
-            aria-modal="true"
-            className="modal-panel modal-panel-compact"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="skill-discard-title">
-                  {t(catalog, language, "skills.detail.discardDialog.title")}
-                </h2>
-                <p>{t(catalog, language, "skills.detail.discardDialog.copy")}</p>
-              </div>
-            </div>
-            <div className="modal-actions modal-actions-pad">
-              <button
-                className="button button-secondary"
-                onClick={() => setPendingPath(null)}
-                type="button"
-              >
-                {t(catalog, language, "skills.detail.discardDialog.stay")}
-              </button>
-              <button
-                className="button button-primary"
-                onClick={() => void handleDiscardAndSwitch()}
-                type="button"
-              >
-                {t(catalog, language, "skills.detail.discardDialog.discard")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          cancelLabel={t(catalog, language, "skills.detail.discardDialog.stay")}
+          confirmLabel={t(catalog, language, "skills.detail.discardDialog.discard")}
+          description={t(catalog, language, "skills.detail.discardDialog.copy")}
+          title={t(catalog, language, "skills.detail.discardDialog.title")}
+          onCancel={() => setPendingPath(null)}
+          onConfirm={() => void handleDiscardAndSwitch()}
+        />
       ) : null}
     </section>
   );

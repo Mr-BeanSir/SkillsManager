@@ -10,7 +10,7 @@ import {
   DEFAULT_APP_WINDOW_WIDTH,
   resolveSkillDetailLayout
 } from "./skillDetailLayout";
-import { fallbackLocale } from "../../i18n";
+import { fallbackLocale } from "../../../app/i18n";
 
 describe("SkillDetailSplitHeader", () => {
   test("renders a divider header with a 30/70 split layout", () => {

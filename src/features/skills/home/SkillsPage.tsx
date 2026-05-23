@@ -5,8 +5,8 @@ import {
   Package
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
-import { readSettings } from "../settings/settingsApi";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { readSettings } from "../../settings/settingsApi";
 import {
   checkInstalledSkillUpdates,
   listInstalledSkills,
@@ -16,8 +16,8 @@ import {
   type SkillUpdateBatchResult,
   type SkillUpdateRepositoryErrorRecord,
   type SkillUpdateStatusRecord
-} from "./skillsApi";
-import { buildSkillsPage, buildSkillsSummary, filterInstalledSkills } from "./skillsPageModel";
+} from "../skillsApi";
+import { buildSkillsPage, buildSkillsSummary, filterInstalledSkills } from "../skillsPageModel";
 import {
   buildInitialUpdateRuntimeState,
   buildUpdateRuntimeView,
@@ -27,7 +27,7 @@ import {
   startUpdatingAllSkills,
   startUpdatingSkill,
   type SkillUpdateRuntimeState
-} from "./skillsUpdateState";
+} from "../skillsUpdateState";
 
 type SkillsPageProps = {
   catalog: I18nCatalog;

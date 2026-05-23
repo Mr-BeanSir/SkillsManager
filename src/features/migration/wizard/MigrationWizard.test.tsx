@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { fallbackLocale } from "../../i18n";
+import { fallbackLocale } from "../../../app/i18n";
 import { MigrationWizard, type MigrationWizardState } from "./MigrationWizard";
 
 describe("MigrationWizard", () => {

@@ -1,5 +1,5 @@
-import { type I18nCatalog, type LanguageCode, t } from "../../i18n";
-import { type ProjectOnlyMigrationReport } from "./migrationApi";
+import { type I18nCatalog, type LanguageCode, t } from "../../../app/i18n";
+import { type ProjectOnlyMigrationReport } from "../migrationApi";
 import styles from "./MigrationWizard.module.css";
 
 export type MigrationWizardState =

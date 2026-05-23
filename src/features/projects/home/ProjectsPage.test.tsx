@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { fallbackLocale } from "../../i18n";
-import type { ProjectRecord } from "./projectsApi";
+import { fallbackLocale } from "../../../app/i18n";
+import type { ProjectRecord } from "../projectsApi";
 import { ProjectRowActions } from "./ProjectsPage";
 
 const project: ProjectRecord = {

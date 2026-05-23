@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { fallbackLocale } from "../../i18n";
-import type { InstalledSkill } from "../skills/skillsApi";
-import type { SkillGroup } from "./groupsApi";
+import { fallbackLocale } from "../../../app/i18n";
+import type { InstalledSkill } from "../../skills/skillsApi";
+import type { SkillGroup } from "../groupsApi";
 import { GroupDetailPage } from "./GroupDetailPage";
 
 const group: SkillGroup = {

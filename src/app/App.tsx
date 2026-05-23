@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { appNavItems } from "./appNav";
 import { MessageProvider } from "./message";
+import { ConfirmDialog } from "../shared/components/ConfirmDialog";
 import {
   type AppPageState,
   cliTargetsRoute,
@@ -16,23 +17,23 @@ import {
   remoteSkillDetailRoute,
   skillDetailRoute
 } from "./appPageState";
-import { DiscoverPage } from "./features/discover/DiscoverPage";
-import { RemoteSkillDetailPage } from "./features/discover/RemoteSkillDetailPage";
-import type { DiscoverSkill } from "./features/discover/discoverApi";
-import { ConnectedGroupDetailPage } from "./features/groups/GroupDetailPage";
-import { GroupsPage } from "./features/groups/GroupsPage";
-import { ProjectDetailPage } from "./features/projects/ProjectDetailPage";
-import { ProjectsPage } from "./features/projects/ProjectsPage";
-import { CliTargetsPage } from "./features/settings/CliTargetsPage";
-import { SettingsPage } from "./features/settings/SettingsPage";
+import { DiscoverPage } from "../features/discover/home/DiscoverPage";
+import { RemoteSkillDetailPage } from "../features/discover/detail/RemoteSkillDetailPage";
+import type { DiscoverSkill } from "../features/discover/discoverApi";
+import { ConnectedGroupDetailPage } from "../features/groups/detail/GroupDetailPage";
+import { GroupsPage } from "../features/groups/home/GroupsPage";
+import { ProjectDetailPage } from "../features/projects/detail/ProjectDetailPage";
+import { ProjectsPage } from "../features/projects/home/ProjectsPage";
+import { CliTargetsPage } from "../features/settings/detail/CliTargetsPage";
+import { SettingsPage } from "../features/settings/home/SettingsPage";
 import {
   exitApplication,
   readDesktopRuntime,
   restartAsAdministrator,
   type DesktopRuntimeRecord
-} from "./features/settings/desktopRuntimeApi";
-import { SkillDetailPage } from "./features/skills/SkillDetailPage";
-import { SkillsPage } from "./features/skills/SkillsPage";
+} from "../features/settings/desktopRuntimeApi";
+import { SkillDetailPage } from "../features/skills/detail/SkillDetailPage";
+import { SkillsPage } from "../features/skills/home/SkillsPage";
 import {
   fallbackLocale,
   I18nCatalog,
@@ -151,41 +152,16 @@ export function App() {
   return (
     <div className="app-shell">
       {desktopRuntime?.shouldPromptForAdminRestart && !window.location.origin.includes("127.0.0.1") ? (
-        <div className="modal-backdrop">
-          <div
-            aria-labelledby="admin-restart-title"
-            aria-modal="true"
-            className="modal-panel modal-panel-compact"
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="admin-restart-title">
-                  {t(catalog, language, "settings.adminRestart.title")}
-                </h2>
-                <p>{t(catalog, language, "settings.adminRestart.description")}</p>
-              </div>
-            </div>
-            <div className="modal-actions modal-actions-pad">
-              <button
-                className="button button-secondary"
-                disabled={isRestartingAsAdmin}
-                onClick={() => void exitApplication()}
-                type="button"
-              >
-                {t(catalog, language, "settings.adminRestart.exit")}
-              </button>
-              <button
-                className="button button-primary"
-                disabled={isRestartingAsAdmin}
-                onClick={() => void handleRestartAsAdministrator()}
-                type="button"
-              >
-                {t(catalog, language, "settings.adminRestart.confirm")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          cancelLabel={t(catalog, language, "settings.adminRestart.exit")}
+          closeOnBackdropClick={false}
+          confirmLabel={t(catalog, language, "settings.adminRestart.confirm")}
+          description={t(catalog, language, "settings.adminRestart.description")}
+          disabled={isRestartingAsAdmin}
+          title={t(catalog, language, "settings.adminRestart.title")}
+          onCancel={() => void exitApplication()}
+          onConfirm={() => void handleRestartAsAdministrator()}
+        />
       ) : null}
 
       <a className="skip-link" href="#main-content">
@@ -303,44 +279,18 @@ export function App() {
       </main>
 
       {pendingPage ? (
-        <div className="modal-backdrop" onClick={() => setPendingPage(null)}>
-          <div
-            aria-labelledby="skill-leave-title"
-            aria-modal="true"
-            className="modal-panel modal-panel-compact"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="skill-leave-title">
-                  {t(catalog, language, "skills.detail.leaveDialog.title")}
-                </h2>
-                <p>{t(catalog, language, "skills.detail.leaveDialog.copy")}</p>
-              </div>
-            </div>
-            <div className="modal-actions modal-actions-pad">
-              <button
-                className="button button-secondary"
-                onClick={() => setPendingPage(null)}
-                type="button"
-              >
-                {t(catalog, language, "skills.detail.leaveDialog.stay")}
-              </button>
-              <button
-                className="button button-primary"
-                onClick={() => {
-                  setSkillDetailDirty(false);
-                  setCurrentPage(pendingPage);
-                  setPendingPage(null);
-                }}
-                type="button"
-              >
-                {t(catalog, language, "skills.detail.leaveDialog.discard")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          cancelLabel={t(catalog, language, "skills.detail.leaveDialog.stay")}
+          confirmLabel={t(catalog, language, "skills.detail.leaveDialog.discard")}
+          description={t(catalog, language, "skills.detail.leaveDialog.copy")}
+          title={t(catalog, language, "skills.detail.leaveDialog.title")}
+          onCancel={() => setPendingPage(null)}
+          onConfirm={() => {
+            setSkillDetailDirty(false);
+            setCurrentPage(pendingPage);
+            setPendingPage(null);
+          }}
+        />
       ) : null}
 
       <MessageProvider />

@@ -1,6 +1,7 @@
 import { FolderOpen, MagnifyingGlass, NotePencil, Plus, Trash, X } from "@phosphor-icons/react";
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useState } from "react";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { ConfirmDialog } from "../../../shared/components/ConfirmDialog";
 import styles from "./ProjectsPage.module.css";
 import {
   createProject,
@@ -8,8 +9,8 @@ import {
   listProjects,
   selectProjectDirectory,
   type ProjectRecord
-} from "./projectsApi";
-import { buildProjectsPage } from "./projectsPageModel";
+} from "../projectsApi";
+import { buildProjectsPage } from "../projectsPageModel";
 
 type ProjectsPageProps = {
   catalog: I18nCatalog;
@@ -405,40 +406,16 @@ export function ProjectsPage({
       ) : null}
 
       {pendingDeleteProject ? (
-        <div className="modal-backdrop" onClick={() => setPendingDeleteProject(null)}>
-          <div
-            aria-labelledby="projects-delete-title"
-            aria-modal="true"
-            className="modal-panel modal-panel-compact"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 className={styles.projectsDeleteTitle} id="projects-delete-title">
-                  {t(catalog, language, "projects.deleteDialog.title")}
-                </h2>
-                <p>
-                  {t(catalog, language, "projects.deleteConfirm", {
-                    name: pendingDeleteProject.name
-                  })}
-                </p>
-              </div>
-            </div>
-            <div className="modal-actions modal-actions-pad">
-              <button
-                className="button button-secondary"
-                onClick={() => setPendingDeleteProject(null)}
-                type="button"
-              >
-                {t(catalog, language, "projects.deleteDialog.cancel")}
-              </button>
-              <button className="button button-primary" onClick={() => void handleConfirmDelete()} type="button">
-                {t(catalog, language, "projects.deleteDialog.confirm")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          cancelLabel={t(catalog, language, "projects.deleteDialog.cancel")}
+          confirmLabel={t(catalog, language, "projects.deleteDialog.confirm")}
+          description={t(catalog, language, "projects.deleteConfirm", {
+            name: pendingDeleteProject.name
+          })}
+          title={t(catalog, language, "projects.deleteDialog.title")}
+          onCancel={() => setPendingDeleteProject(null)}
+          onConfirm={() => void handleConfirmDelete()}
+        />
       ) : null}
     </section>
   );

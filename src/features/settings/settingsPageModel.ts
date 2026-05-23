@@ -1,4 +1,4 @@
-import { type MigrationWizardState } from "../migration/MigrationWizard";
+import { type MigrationWizardState } from "../migration/wizard/MigrationWizard";
 import { type ProjectOnlyMigrationReport } from "../migration/migrationApi";
 
 type RunMigrationWorkflowOptions = {

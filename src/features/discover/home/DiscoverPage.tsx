@@ -7,9 +7,10 @@ import {
   TrendUp,
 } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useState } from "react";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
-import { message } from "../../message";
-import { readSettings } from "../settings/settingsApi";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { message } from "../../../app/message";
+import { Modal } from "../../../shared/components/Modal";
+import { readSettings } from "../../settings/settingsApi";
 import styles from "./DiscoverPage.module.css";
 import {
   discoverEntries,
@@ -18,14 +19,14 @@ import {
   type DiscoverListState,
   type DiscoverPageResult,
   type DiscoverSkill
-} from "./discoverApi";
+} from "../discoverApi";
 import {
   checkRepositorySkill,
   installRepositorySkill,
   isCheckAllResult,
   repositoryInstallInputFromDiscoverSkill,
   type RepositoryInstallProgress
-} from "./repositoryInstallApi";
+} from "../repositoryInstallApi";
 
 type DiscoverPageProps = {
   catalog: I18nCatalog;
@@ -443,118 +444,98 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
       </section>
 
       {isRepositoryInstallOpen ? (
-        <div className="modal-backdrop" onClick={() => setIsRepositoryInstallOpen(false)}>
-          <section
-            aria-labelledby="discover-install-dialog-title"
-            aria-modal="true"
-            className="modal-panel modal-panel-compact"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="panel-header">
-              <div>
-                <h2 id="discover-install-dialog-title">
-                  {t(catalog, language, "discover.install.title")}
-                </h2>
-                <p>{t(catalog, language, "discover.install.description")}</p>
-              </div>
-              <button
-                aria-label={t(catalog, language, "discover.install.close")}
-                className="icon-button"
-                onClick={() => setIsRepositoryInstallOpen(false)}
-                type="button"
-              >
-                ×
-              </button>
+        <Modal
+          closeLabel={t(catalog, language, "discover.install.close")}
+          description={t(catalog, language, "discover.install.description")}
+          title={t(catalog, language, "discover.install.title")}
+          onClose={() => setIsRepositoryInstallOpen(false)}
+        >
+          <form className={styles.installForm} onSubmit={handleRepositoryInstall}>
+            <div className={styles.installFields}>
+              <label className="field">
+                <span>{t(catalog, language, "discover.install.source")}</span>
+                <input
+                  name="repository-source"
+                  onChange={(event) => setRepositorySource(event.target.value)}
+                  placeholder={t(catalog, language, "discover.install.sourcePlaceholder")}
+                  type="text"
+                  value={repositorySource}
+                />
+              </label>
+
+              <label className="field">
+                <span>{t(catalog, language, "discover.install.skillName")}</span>
+                <input
+                  name="repository-skill-name"
+                  onChange={(event) => setRepositorySkillName(event.target.value)}
+                  placeholder={t(catalog, language, "discover.install.skillNamePlaceholder")}
+                  type="text"
+                  value={repositorySkillName}
+                />
+                <p className="field-hint">{t(catalog, language, "discover.install.skillNameHint")}</p>
+              </label>
             </div>
 
-            <form className={styles.installForm} onSubmit={handleRepositoryInstall}>
-              <div className={styles.installFields}>
-                <label className="field">
-                  <span>{t(catalog, language, "discover.install.source")}</span>
-                  <input
-                    name="repository-source"
-                    onChange={(event) => setRepositorySource(event.target.value)}
-                    placeholder={t(catalog, language, "discover.install.sourcePlaceholder")}
-                    type="text"
-                    value={repositorySource}
-                  />
-                </label>
+            {(repositoryInstallError || repositoryCheckMessage || repositoryProgress) ? (
+              <div className={styles.installMessages}>
+                {repositoryInstallError ? (
+                  <p className="form-error" role="alert">
+                    {repositoryInstallError}
+                  </p>
+                ) : null}
 
-                <label className="field">
-                  <span>{t(catalog, language, "discover.install.skillName")}</span>
-                  <input
-                    name="repository-skill-name"
-                    onChange={(event) => setRepositorySkillName(event.target.value)}
-                    placeholder={t(catalog, language, "discover.install.skillNamePlaceholder")}
-                    type="text"
-                    value={repositorySkillName}
-                  />
-                  <p className="field-hint">{t(catalog, language, "discover.install.skillNameHint")}</p>
-                </label>
+                {repositoryCheckMessage ? (
+                  <p className="form-hint" role="status">
+                    {repositoryCheckMessage}
+                  </p>
+                ) : null}
+
+                {repositoryProgress ? (
+                  <p className="form-progress" role="status">
+                    {repositoryProgress.message}
+                    {repositoryProgress.current && repositoryProgress.total ? (
+                      <span className={styles.progressFraction}>
+                        {" "}{repositoryProgress.current}/{repositoryProgress.total}
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
               </div>
+            ) : null}
 
-              {(repositoryInstallError || repositoryCheckMessage || repositoryProgress) ? (
-                <div className={styles.installMessages}>
-                  {repositoryInstallError ? (
-                    <p className="form-error" role="alert">
-                      {repositoryInstallError}
-                    </p>
-                  ) : null}
-
-                  {repositoryCheckMessage ? (
-                    <p className="form-hint" role="status">
-                      {repositoryCheckMessage}
-                    </p>
-                  ) : null}
-
-                  {repositoryProgress ? (
-                    <p className="form-progress" role="status">
-                      {repositoryProgress.message}
-                      {repositoryProgress.current && repositoryProgress.total ? (
-                        <span className={styles.progressFraction}>
-                          {" "}{repositoryProgress.current}/{repositoryProgress.total}
-                        </span>
-                      ) : null}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <div className={styles.installActions}>
-                <button
-                  className="button button-secondary"
-                  disabled={
-                    isCheckingRepository ||
-                    isInstallingRepository ||
-                    repositorySource.trim().length === 0 ||
-                    repositorySkillName.trim().length === 0
-                  }
-                  onClick={() => void handleCheckRepositoryInstall()}
-                  type="button"
-                >
-                  {isCheckingRepository
-                    ? t(catalog, language, "discover.install.checking")
-                    : t(catalog, language, "discover.install.check")}
-                </button>
-                <button
-                  className="button button-primary"
-                  disabled={
-                    isCheckingRepository ||
-                    isInstallingRepository ||
-                    repositorySource.trim().length === 0 ||
-                    repositorySkillName.trim().length === 0
-                  }
-                  type="submit"
-                >
-                  {isInstallingRepository
-                    ? t(catalog, language, "discover.install.installing")
-                    : t(catalog, language, "discover.install.submit")}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+            <div className={styles.installActions}>
+              <button
+                className="button button-secondary"
+                disabled={
+                  isCheckingRepository ||
+                  isInstallingRepository ||
+                  repositorySource.trim().length === 0 ||
+                  repositorySkillName.trim().length === 0
+                }
+                onClick={() => void handleCheckRepositoryInstall()}
+                type="button"
+              >
+                {isCheckingRepository
+                  ? t(catalog, language, "discover.install.checking")
+                  : t(catalog, language, "discover.install.check")}
+              </button>
+              <button
+                className="button button-primary"
+                disabled={
+                  isCheckingRepository ||
+                  isInstallingRepository ||
+                  repositorySource.trim().length === 0 ||
+                  repositorySkillName.trim().length === 0
+                }
+                type="submit"
+              >
+                {isInstallingRepository
+                  ? t(catalog, language, "discover.install.installing")
+                  : t(catalog, language, "discover.install.submit")}
+              </button>
+            </div>
+          </form>
+        </Modal>
       ) : null}
     </section>
   );

@@ -7,8 +7,8 @@ import {
   restoreRemovedRow,
   restoreToggledRow
 } from "./projectDetailRowState";
-import type { ProjectCliTargetRecord } from "./projectCliTargetsApi";
-import type { ProjectGroupRecord } from "./projectDetailApi";
+import type { ProjectCliTargetRecord } from "../projectCliTargetsApi";
+import type { ProjectGroupRecord } from "../projectDetailApi";
 
 const frontendGroup: ProjectGroupRecord = {
   id: "project-group-frontend",

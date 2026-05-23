@@ -1,14 +1,14 @@
 import { ArrowLeft, ArrowRight, ArrowSquareOut } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import { I18nCatalog, LanguageCode, t } from "../../i18n";
-import { listInstalledSkills, type InstalledSkill } from "../skills/skillsApi";
+import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { listInstalledSkills, type InstalledSkill } from "../../skills/skillsApi";
 import {
   addSkillsToGroup,
   listSkillGroups,
   removeSkillFromGroup,
   type SkillGroup
-} from "./groupsApi";
-import styles from "./GroupsPage.module.css";
+} from "../groupsApi";
+import styles from "../home/GroupsPage.module.css";
 
 type GroupDetailPageProps = {
   catalog: I18nCatalog;

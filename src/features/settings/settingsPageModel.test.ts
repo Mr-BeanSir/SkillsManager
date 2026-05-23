@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { runMigrationWorkflow } from "./settingsPageModel";
-import { type MigrationWizardState } from "../migration/MigrationWizard";
+import { type MigrationWizardState } from "../migration/wizard/MigrationWizard";
 import { type ProjectOnlyMigrationReport } from "../migration/migrationApi";
 
 describe("settingsPageModel", () => {

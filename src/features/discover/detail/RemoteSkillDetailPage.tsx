@@ -1,19 +1,19 @@
 import { ArrowLeft, DownloadSimple } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import type { AppPageState } from "../../appPageState";
-import { I18nCatalog, LanguageCode } from "../../i18n";
-import { message } from "../../message";
-import { SafeRemoteMarkdownPreview } from "../../shared/remote-content/SafeRemoteMarkdownPreview";
+import type { AppPageState } from "../../../app/appPageState";
+import { I18nCatalog, LanguageCode } from "../../../app/i18n";
+import { message } from "../../../app/message";
+import { SafeRemoteMarkdownPreview } from "../../../shared/remote-content/SafeRemoteMarkdownPreview";
 import styles from "./RemoteSkillDetailPage.module.css";
 import {
   installRepositorySkill,
   repositoryInstallInputFromDiscoverSkill
-} from "./repositoryInstallApi";
+} from "../repositoryInstallApi";
 import {
   getRemoteSkillDetail,
   type RemoteSkillDetailInput,
   type RemoteSkillDetailRecord
-} from "./remoteSkillDetailApi";
+} from "../remoteSkillDetailApi";
 
 type RemoteSkillDetailPageProps = {
   catalog: I18nCatalog;
