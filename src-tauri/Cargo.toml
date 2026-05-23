@@ -24,6 +24,7 @@ ureq = { version = "2", features = ["tls"] }
 html2text = "0.12"
 zip = "0.6"
 junction = "2"
+uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2"

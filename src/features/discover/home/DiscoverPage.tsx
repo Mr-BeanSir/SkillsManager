@@ -1,6 +1,7 @@
 import {
   DownloadSimple,
   Eye,
+  FileArrowUp,
   MagnifyingGlass,
   Package,
   Plus,
@@ -27,6 +28,13 @@ import {
   repositoryInstallInputFromDiscoverSkill,
   type RepositoryInstallProgress
 } from "../repositoryInstallApi";
+import {
+  checkFileImport,
+  installFromFile,
+  type FileImportCheckResult,
+  type FileImportProgress,
+  type FileImportType
+} from "../../skills/fileImportApi";
 
 type DiscoverPageProps = {
   catalog: I18nCatalog;
@@ -56,6 +64,16 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
   const [isCheckingRepository, setIsCheckingRepository] = useState(false);
   const [isInstallingRepository, setIsInstallingRepository] = useState(false);
   const [repositoryProgress, setRepositoryProgress] = useState<RepositoryInstallProgress | null>(null);
+
+  // File import state
+  const [installTab, setInstallTab] = useState<"repository" | "file">("repository");
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<FileImportType>("npx");
+  const [fileCheckResult, setFileCheckResult] = useState<FileImportCheckResult | null>(null);
+  const [fileImportError, setFileImportError] = useState<string | null>(null);
+  const [isCheckingFile, setIsCheckingFile] = useState(false);
+  const [isInstallingFile, setIsInstallingFile] = useState(false);
+  const [fileProgress, setFileProgress] = useState<FileImportProgress | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -123,6 +141,13 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
       setIsCheckingRepository(false);
       setIsInstallingRepository(false);
       setRepositoryProgress(null);
+      setInstallTab("repository");
+      setSelectedFile(null);
+      setFileCheckResult(null);
+      setFileImportError(null);
+      setIsCheckingFile(false);
+      setIsInstallingFile(false);
+      setFileProgress(null);
     }
   }, [isRepositoryInstallOpen]);
 
@@ -237,6 +262,94 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
     }
   }
 
+  async function handleSelectFile() {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "JSON",
+            extensions: ["json"]
+          }
+        ]
+      });
+      if (selected) {
+        setSelectedFile(selected as string);
+        setFileCheckResult(null);
+        setFileImportError(null);
+      }
+    } catch (reason) {
+      setFileImportError(errorMessage(reason));
+    }
+  }
+
+  function handleFileDrop(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      const filePath = (file as any).path;
+      if (filePath) {
+        setSelectedFile(filePath);
+        setFileCheckResult(null);
+        setFileImportError(null);
+      }
+    }
+  }
+
+  function handleDragOver(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  async function handleCheckFile() {
+    if (!selectedFile) return;
+
+    setIsCheckingFile(true);
+    setFileImportError(null);
+    setFileCheckResult(null);
+
+    try {
+      const result = await checkFileImport(selectedFile, fileType);
+      setFileCheckResult(result);
+    } catch (reason) {
+      setFileImportError(errorMessage(reason));
+    } finally {
+      setIsCheckingFile(false);
+    }
+  }
+
+  async function handleInstallFromFile() {
+    if (!selectedFile) return;
+
+    setIsInstallingFile(true);
+    setFileImportError(null);
+    setFileProgress(null);
+
+    try {
+      const installed = await installFromFile(
+        selectedFile,
+        fileType,
+        (progress) => setFileProgress(progress)
+      );
+      message.success(
+        t(catalog, language, "skills.fileImport.success", {
+          count: String(installed.length)
+        })
+      );
+      setIsRepositoryInstallOpen(false);
+      setSelectedFile(null);
+      setFileCheckResult(null);
+    } catch (reason) {
+      setFileImportError(errorMessage(reason));
+    } finally {
+      setIsInstallingFile(false);
+    }
+  }
+
   const page = result?.page ?? state.page;
   const totalPages = result?.totalPages ?? 1;
 
@@ -263,7 +376,7 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
             type="button"
           >
             <Plus size={16} weight="bold" aria-hidden="true" />
-            {t(catalog, language, "discover.install.title")}
+            {t(catalog, language, "skills.install.title")}
           </button>
         </div>
 
@@ -449,92 +562,225 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
           description={t(catalog, language, "discover.install.description")}
           title={t(catalog, language, "discover.install.title")}
           onClose={() => setIsRepositoryInstallOpen(false)}
+          compact={false}
         >
-          <form className={styles.installForm} onSubmit={handleRepositoryInstall}>
-            <div className={styles.installFields}>
-              <label className="field">
-                <span>{t(catalog, language, "discover.install.source")}</span>
-                <input
-                  name="repository-source"
-                  onChange={(event) => setRepositorySource(event.target.value)}
-                  placeholder={t(catalog, language, "discover.install.sourcePlaceholder")}
-                  type="text"
-                  value={repositorySource}
-                />
-              </label>
+          <div className={styles.installTabs}>
+            <button
+              aria-pressed={installTab === "repository"}
+              className={installTab === "repository" ? "tab-button tab-button-active" : "tab-button"}
+              onClick={() => setInstallTab("repository")}
+              type="button"
+            >
+              {t(catalog, language, "skills.install.tab.repository")}
+            </button>
+            <button
+              aria-pressed={installTab === "file"}
+              className={installTab === "file" ? "tab-button tab-button-active" : "tab-button"}
+              onClick={() => setInstallTab("file")}
+              type="button"
+            >
+              {t(catalog, language, "skills.install.tab.file")}
+            </button>
+          </div>
 
-              <label className="field">
-                <span>{t(catalog, language, "discover.install.skillName")}</span>
-                <input
-                  name="repository-skill-name"
-                  onChange={(event) => setRepositorySkillName(event.target.value)}
-                  placeholder={t(catalog, language, "discover.install.skillNamePlaceholder")}
-                  type="text"
-                  value={repositorySkillName}
-                />
-                <p className="field-hint">{t(catalog, language, "discover.install.skillNameHint")}</p>
-              </label>
-            </div>
+          {installTab === "repository" ? (
+            <form className={styles.installForm} onSubmit={handleRepositoryInstall}>
+              <div className={styles.installFields}>
+                <label className="field">
+                  <span>{t(catalog, language, "discover.install.source")}</span>
+                  <input
+                    name="repository-source"
+                    onChange={(event) => setRepositorySource(event.target.value)}
+                    placeholder={t(catalog, language, "discover.install.sourcePlaceholder")}
+                    type="text"
+                    value={repositorySource}
+                  />
+                </label>
 
-            {(repositoryInstallError || repositoryCheckMessage || repositoryProgress) ? (
-              <div className={styles.installMessages}>
-                {repositoryInstallError ? (
-                  <p className="form-error" role="alert">
-                    {repositoryInstallError}
-                  </p>
-                ) : null}
-
-                {repositoryCheckMessage ? (
-                  <p className="form-hint" role="status">
-                    {repositoryCheckMessage}
-                  </p>
-                ) : null}
-
-                {repositoryProgress ? (
-                  <p className="form-progress" role="status">
-                    {repositoryProgress.message}
-                    {repositoryProgress.current && repositoryProgress.total ? (
-                      <span className={styles.progressFraction}>
-                        {" "}{repositoryProgress.current}/{repositoryProgress.total}
-                      </span>
-                    ) : null}
-                  </p>
-                ) : null}
+                <label className="field">
+                  <span>{t(catalog, language, "discover.install.skillName")}</span>
+                  <input
+                    name="repository-skill-name"
+                    onChange={(event) => setRepositorySkillName(event.target.value)}
+                    placeholder={t(catalog, language, "discover.install.skillNamePlaceholder")}
+                    type="text"
+                    value={repositorySkillName}
+                  />
+                  <p className="field-hint">{t(catalog, language, "discover.install.skillNameHint")}</p>
+                </label>
               </div>
-            ) : null}
 
-            <div className={styles.installActions}>
-              <button
-                className="button button-secondary"
-                disabled={
-                  isCheckingRepository ||
-                  isInstallingRepository ||
-                  repositorySource.trim().length === 0 ||
-                  repositorySkillName.trim().length === 0
-                }
-                onClick={() => void handleCheckRepositoryInstall()}
-                type="button"
-              >
-                {isCheckingRepository
-                  ? t(catalog, language, "discover.install.checking")
-                  : t(catalog, language, "discover.install.check")}
-              </button>
-              <button
-                className="button button-primary"
-                disabled={
-                  isCheckingRepository ||
-                  isInstallingRepository ||
-                  repositorySource.trim().length === 0 ||
-                  repositorySkillName.trim().length === 0
-                }
-                type="submit"
-              >
-                {isInstallingRepository
-                  ? t(catalog, language, "discover.install.installing")
-                  : t(catalog, language, "discover.install.submit")}
-              </button>
+              {(repositoryInstallError || repositoryCheckMessage || repositoryProgress) ? (
+                <div className={styles.installMessages}>
+                  {repositoryInstallError ? (
+                    <p className="form-error" role="alert">
+                      {repositoryInstallError}
+                    </p>
+                  ) : null}
+
+                  {repositoryCheckMessage ? (
+                    <p className="form-hint" role="status">
+                      {repositoryCheckMessage}
+                    </p>
+                  ) : null}
+
+                  {repositoryProgress ? (
+                    <p className="form-progress" role="status">
+                      {repositoryProgress.message}
+                      {repositoryProgress.current && repositoryProgress.total ? (
+                        <span className={styles.progressFraction}>
+                          {" "}{repositoryProgress.current}/{repositoryProgress.total}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className={styles.installActions}>
+                <button
+                  className="button button-secondary"
+                  disabled={
+                    isCheckingRepository ||
+                    isInstallingRepository ||
+                    repositorySource.trim().length === 0 ||
+                    repositorySkillName.trim().length === 0
+                  }
+                  onClick={() => void handleCheckRepositoryInstall()}
+                  type="button"
+                >
+                  {isCheckingRepository
+                    ? t(catalog, language, "discover.install.checking")
+                    : t(catalog, language, "discover.install.check")}
+                </button>
+                <button
+                  className="button button-primary"
+                  disabled={
+                    isCheckingRepository ||
+                    isInstallingRepository ||
+                    repositorySource.trim().length === 0 ||
+                    repositorySkillName.trim().length === 0
+                  }
+                  type="submit"
+                >
+                  {isInstallingRepository
+                    ? t(catalog, language, "discover.install.installing")
+                    : t(catalog, language, "discover.install.submit")}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className={styles.installForm}>
+              <div className={styles.installFields}>
+                <div className={styles.fileInputRow}>
+                  <label className="field" style={{ flex: 1 }}>
+                    <span>{t(catalog, language, "skills.fileImport.selectFile")}</span>
+                    <div
+                      className={styles.fileInputWrapper}
+                      onDrop={handleFileDrop}
+                      onDragOver={handleDragOver}
+                    >
+                      <input
+                        className={styles.fileInputDisplay}
+                        readOnly
+                        type="text"
+                        value={selectedFile ?? t(catalog, language, "skills.fileImport.noFileSelected")}
+                      />
+                      <button
+                        className="button button-secondary"
+                        onClick={() => void handleSelectFile()}
+                        type="button"
+                      >
+                        <FileArrowUp size={16} weight="bold" aria-hidden="true" />
+                      </button>
+                    </div>
+                    <p className="field-hint">{t(catalog, language, "skills.fileImport.dropHint")}</p>
+                  </label>
+                  <label className="field" style={{ width: "180px" }}>
+                    <span>{t(catalog, language, "skills.fileImport.fileType")}</span>
+                    <select
+                      onChange={(event) => {
+                        setFileType(event.target.value as FileImportType);
+                        setFileCheckResult(null);
+                      }}
+                      value={fileType}
+                    >
+                      <option value="npx">{t(catalog, language, "skills.fileImport.fileType.npx")}</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              {(fileImportError || fileCheckResult || fileProgress) ? (
+                <div className={styles.installMessages}>
+                  {fileImportError ? (
+                    <p className="form-error" role="alert">
+                      {fileImportError}
+                    </p>
+                  ) : null}
+
+                  {fileCheckResult ? (
+                    <p className={fileCheckResult.valid ? "form-hint" : "form-error"} role="status">
+                      {fileCheckResult.valid
+                        ? t(catalog, language, "skills.fileImport.checkResult", {
+                            count: String(fileCheckResult.skillCount),
+                            names: fileCheckResult.skillNames.join(", ")
+                          })
+                        : t(catalog, language, "skills.fileImport.invalidFile")}
+                    </p>
+                  ) : null}
+
+                  {fileProgress ? (
+                    <p className="form-progress" role="status">
+                      {fileProgress.message}
+                      {fileProgress.current && fileProgress.total ? (
+                        <span className={styles.progressFraction}>
+                          {" "}{fileProgress.current}/{fileProgress.total}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className={styles.installActions}>
+                <button
+                  className="button button-secondary"
+                  disabled={
+                    !selectedFile ||
+                    isCheckingFile ||
+                    isInstallingFile
+                  }
+                  onClick={() => void handleCheckFile()}
+                  type="button"
+                >
+                  {isCheckingFile
+                    ? t(catalog, language, "skills.fileImport.checking")
+                    : t(catalog, language, "skills.fileImport.check")}
+                </button>
+                <button
+                  className="button button-primary"
+                  disabled={
+                    !selectedFile ||
+                    !fileCheckResult?.valid ||
+                    isCheckingFile ||
+                    isInstallingFile
+                  }
+                  onClick={() => void handleInstallFromFile()}
+                  type="button"
+                >
+                  {isInstallingFile
+                    ? fileProgress
+                      ? t(catalog, language, "skills.fileImport.installing", {
+                          current: String(fileProgress.current ?? 0),
+                          total: String(fileProgress.total ?? 0)
+                        })
+                      : t(catalog, language, "discover.install.installing")
+                    : t(catalog, language, "skills.fileImport.install")}
+                </button>
+              </div>
             </div>
-          </form>
+          )}
         </Modal>
       ) : null}
     </section>

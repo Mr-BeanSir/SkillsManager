@@ -7,6 +7,7 @@ pub mod domain;
 pub mod fs_links;
 #[cfg(test)]
 mod junction_test;
+mod file_import;
 mod install;
 mod locales;
 mod migration;
@@ -103,6 +104,8 @@ pub fn run() {
             custom_directories::create_custom_directory_record,
             custom_directories::update_custom_directory_record,
             custom_directories::delete_custom_directory_record,
+            file_import::check_file_import_record,
+            file_import::install_from_file_record,
             locales::read_locale_file,
             install::install_local_fixture_skill,
             migration::migrate_project_only_database_record,
@@ -151,6 +154,7 @@ pub fn run() {
             skill_updates::update_installed_skills_record,
             skill_updates::update_installed_skills_batch_record,
             skills::list_installed_skill_records,
+            skills::delete_installed_skill_record,
             updater::get_app_version,
             updater::check_app_update,
             updater::download_app_update,

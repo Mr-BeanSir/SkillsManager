@@ -76,6 +76,16 @@ export function updateInstalledSkills(skillIds: string[]) {
   });
 }
 
+export function deleteInstalledSkill(skillId: string) {
+  if (!isTauriRuntime()) {
+    return Promise.reject(new Error("Open the Tauri app to delete installed skills."));
+  }
+
+  return invoke<void>("delete_installed_skill_record", {
+    skillId
+  });
+}
+
 function isTauriRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }

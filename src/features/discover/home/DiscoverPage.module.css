@@ -49,3 +49,44 @@
   font-weight: 700;
   opacity: 0.7;
 }
+
+.installTabs {
+  display: flex;
+  width: 100%;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.installTabs button {
+  flex: 1;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: 12px 16px;
+}
+
+.installTabs button[aria-pressed="true"] {
+  border-bottom-color: #2f3437;
+}
+
+.fileInputRow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.fileInputWrapper {
+  display: flex;
+  gap: 8px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  padding: 2px;
+  transition: border-color 0.2s ease;
+}
+
+.fileInputWrapper:hover {
+  border-color: #eaeaea;
+}
+
+.fileInputDisplay {
+  flex: 1;
+  min-width: 0;
+}

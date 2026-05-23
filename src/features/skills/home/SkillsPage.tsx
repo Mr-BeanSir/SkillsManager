@@ -2,14 +2,18 @@ import {
   ArrowClockwise,
   Eye,
   MagnifyingGlass,
-  Package
+  Package,
+  Trash
 } from "@phosphor-icons/react";
 import styles from "./SkillsPage.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { ConfirmDialog } from "../../../shared/components/ConfirmDialog";
+import { message } from "../../../shared/components/message";
 import { readSettings } from "../../settings/settingsApi";
 import {
   checkInstalledSkillUpdates,
+  deleteInstalledSkill,
   listInstalledSkills,
   updateInstalledSkill,
   updateInstalledSkills,
@@ -48,6 +52,9 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
   const [pageSize, setPageSize] = useState(25);
   const [viewMode, setViewMode] = useState<"default" | "source">("default");
   const [selectedSourceRef, setSelectedSourceRef] = useState<string | null>(null);
+  const [pendingDeleteSkillId, setPendingDeleteSkillId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const pendingDeleteSkill = skills.find((skill) => skill.id === pendingDeleteSkillId) ?? null;
 
   useEffect(() => {
     let ignore = false;
@@ -172,6 +179,26 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
           current
         )
       );
+    }
+  }
+
+  async function handleDeleteSkill() {
+    if (!pendingDeleteSkill) {
+      return;
+    }
+
+    const skillName = pendingDeleteSkill.name;
+    setIsDeleting(true);
+
+    try {
+      await deleteInstalledSkill(pendingDeleteSkill.id);
+      setSkills((current) => current.filter((item) => item.id !== pendingDeleteSkill.id));
+      setPendingDeleteSkillId(null);
+      message.success(t(catalog, language, "skills.deleteSuccess", { name: skillName }));
+    } catch (reason: unknown) {
+      message.error(errorMessage(reason));
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -411,6 +438,17 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
                       >
                         <Eye size={18} weight="bold" aria-hidden="true" />
                       </button>
+                      <button
+                        aria-label={t(catalog, language, "skills.action.delete", {
+                          name: skill.name
+                        })}
+                        className="icon-button danger-button"
+                        disabled={rowState?.rowDisabled}
+                        onClick={() => setPendingDeleteSkillId(skill.id)}
+                        type="button"
+                      >
+                        <Trash size={18} weight="bold" aria-hidden="true" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -446,6 +484,26 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
           </div>
         ) : null}
       </section>
+
+      {pendingDeleteSkill ? (
+        <ConfirmDialog
+          cancelLabel={t(catalog, language, "skills.deleteDialog.cancel")}
+          confirmIcon={<Trash size={16} weight="bold" aria-hidden="true" />}
+          confirmLabel={
+            isDeleting
+              ? t(catalog, language, "skills.deleteDialog.deleting")
+              : t(catalog, language, "skills.deleteDialog.confirm")
+          }
+          danger
+          description={t(catalog, language, "skills.deleteDialog.description", {
+            name: pendingDeleteSkill.name
+          })}
+          disabled={isDeleting}
+          title={t(catalog, language, "skills.deleteDialog.title")}
+          onCancel={() => setPendingDeleteSkillId(null)}
+          onConfirm={() => void handleDeleteSkill()}
+        />
+      ) : null}
     </section>
   );
 }

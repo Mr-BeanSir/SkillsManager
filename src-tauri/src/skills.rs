@@ -1,3 +1,6 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+
 use rusqlite::Connection;
 use serde::Serialize;
 use thiserror::Error;
@@ -32,6 +35,8 @@ pub struct InstalledSkill {
 pub enum SkillError {
     #[error("sqlite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
+    #[error("{0}")]
+    Reconcile(#[from] crate::reconcile::ReconcileError),
 }
 
 pub fn list_installed_skills(connection: &Connection) -> Result<Vec<InstalledSkill>, SkillError> {
@@ -45,6 +50,98 @@ pub fn list_installed_skills(connection: &Connection) -> Result<Vec<InstalledSki
 #[tauri::command]
 pub fn list_installed_skill_records() -> Result<Vec<InstalledSkill>, String> {
     with_database(|connection| list_installed_skills(connection))
+}
+
+pub fn delete_installed_skill(
+    connection: &Connection,
+    skill_id: &str,
+    managed_skills_root: &Path,
+) -> Result<(), SkillError> {
+    let (skill_name, managed_dir_name) = connection.query_row(
+        "SELECT name, managed_dir_name FROM skills WHERE id = ?1",
+        [skill_id],
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+    )?;
+
+    // 1. Find symlink paths from DB records
+    let link_paths = list_skill_symlink_paths(connection, skill_id, &skill_name)?;
+
+    // 2. Delete symlink folders
+    for link_path in &link_paths {
+        let _ = crate::fs_links::delete_managed_skill_link(link_path, managed_skills_root);
+    }
+
+    // 3-5 in transaction: delete DB associations → delete appdata dir → delete skill record
+    connection.execute_batch("BEGIN IMMEDIATE")?;
+    connection.execute(
+        "DELETE FROM project_skills WHERE skill_id = ?1",
+        [skill_id],
+    )?;
+    connection.execute(
+        "DELETE FROM skill_group_skills WHERE skill_id = ?1",
+        [skill_id],
+    )?;
+
+    let managed_dir = managed_skills_root.join(&managed_dir_name);
+    if managed_dir.exists() {
+        let _ = fs::remove_dir_all(&managed_dir);
+    }
+
+    connection.execute("DELETE FROM skills WHERE id = ?1", [skill_id])?;
+    connection.execute_batch("COMMIT")?;
+
+    Ok(())
+}
+
+fn list_skill_symlink_paths(
+    connection: &Connection,
+    skill_id: &str,
+    skill_name: &str,
+) -> Result<Vec<PathBuf>, SkillError> {
+    let mut statement = connection.prepare(
+        "SELECT projects.path, cli_targets.relative_path
+        FROM project_skills
+        INNER JOIN projects ON projects.id = project_skills.project_id
+        INNER JOIN project_cli_targets ON project_cli_targets.project_id = project_skills.project_id
+        INNER JOIN cli_targets ON cli_targets.id = project_cli_targets.cli_target_id
+        WHERE project_skills.skill_id = ?1",
+    )?;
+
+    let paths = statement
+        .query_map([skill_id], |row| {
+            let project_path = row.get::<_, String>(0)?;
+            let relative_path = row.get::<_, String>(1)?;
+            Ok((project_path, relative_path))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut link_paths = Vec::new();
+    for (project_path, relative_path) in paths {
+        let target_dir: PathBuf = relative_path
+            .split(['/', '\\'])
+            .filter(|part| !part.is_empty())
+            .fold(PathBuf::from(&project_path), |path, part| path.join(part));
+        link_paths.push(target_dir.join(skill_name));
+    }
+
+    Ok(link_paths)
+}
+
+#[tauri::command]
+pub async fn delete_installed_skill_record(skill_id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let database_path =
+            crate::app_paths::database_path().map_err(|error| error.to_string())?;
+        let connection =
+            crate::db::open_database(database_path).map_err(|error| error.to_string())?;
+        let managed_skills_root =
+            crate::app_paths::managed_skills_dir().map_err(|error| error.to_string())?;
+
+        delete_installed_skill(&connection, &skill_id, &managed_skills_root)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 fn with_database<T>(
@@ -191,6 +288,7 @@ mod tests {
     use super::list_installed_skills;
     use crate::db::{open_in_memory_database, INITIAL_SCHEMA};
     use rusqlite::Connection;
+    use std::fs;
 
     const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
         include_str!("../migrations/0002_project_only_refactor.sql");
@@ -329,6 +427,102 @@ mod tests {
         assert_eq!(skills[0].active_project_count, 0);
         assert_eq!(skills[0].attached_project_count, 0);
         assert!(skills[0].project_usages.is_empty());
+    }
+
+    #[test]
+    fn delete_installed_skill_removes_symlinks_db_records_and_managed_directory() {
+        use super::delete_installed_skill;
+        use crate::fs_links::{create_skill_link, SkillLinkStatus};
+        use std::fs;
+
+        let connection = open_project_only_database();
+        let workspace = TestWorkspace::new("delete-skill");
+        let managed_skills_root = workspace.root.join("managed-skills");
+        fs::create_dir_all(&managed_skills_root).expect("managed root should exist");
+
+        // Create managed skill directory
+        let managed_dir = managed_skills_root.join("grill-with-docs-499b7424");
+        fs::create_dir_all(&managed_dir).expect("managed dir should exist");
+        fs::write(managed_dir.join("SKILL.md"), "# Skill\n").expect("file should write");
+
+        // Insert skill, project, project_skill, cli_target, project_cli_target
+        connection
+            .execute(
+                "INSERT INTO skills (id, name, source_type, source_ref, skill_path, managed_dir_name)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                ("skill-grill", "grill-with-docs", "github", "owner/repo", "skills/grill-with-docs", "grill-with-docs-499b7424"),
+            )
+            .expect("skill should insert");
+        connection
+            .execute(
+                "INSERT INTO projects (id, name, path) VALUES (?1, ?2, ?3)",
+                ("project-one", "My Project", workspace.root.join("my-project").to_string_lossy().as_ref()),
+            )
+            .expect("project should insert");
+        connection
+            .execute(
+                "INSERT INTO project_skills (id, project_id, skill_id, enabled) VALUES (?1, ?2, ?3, 1)",
+                ("ps-one", "project-one", "skill-grill"),
+            )
+            .expect("project_skill should insert");
+        connection
+            .execute(
+                "INSERT INTO project_cli_targets (id, project_id, cli_target_id) VALUES (?1, ?2, ?3)",
+                ("pct-one", "project-one", "agents-skills"),
+            )
+            .expect("project_cli_target should insert");
+
+        // Create symlink
+        let link_path = workspace.root.join("my-project").join(".agents").join("skills").join("grill-with-docs");
+        fs::create_dir_all(link_path.parent().unwrap()).expect("link parent should exist");
+        let check = create_skill_link(&link_path, &managed_dir);
+        assert_eq!(check.status, SkillLinkStatus::Linked);
+
+        // Delete
+        delete_installed_skill(&connection, "skill-grill", &managed_skills_root)
+            .expect("delete should succeed");
+
+        // Symlink removed
+        assert!(!link_path.exists(), "symlink should be removed");
+
+        // DB associations removed
+        let ps_count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM project_skills WHERE skill_id = 'skill-grill'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(ps_count, 0, "project_skills should be empty");
+
+        // Managed directory removed
+        assert!(!managed_dir.exists(), "managed directory should be removed");
+
+        // Skill record removed
+        let skill_count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM skills WHERE id = 'skill-grill'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(skill_count, 0, "skill record should be deleted");
+    }
+
+    struct TestWorkspace {
+        root: std::path::PathBuf,
+    }
+
+    impl TestWorkspace {
+        fn new(name: &str) -> Self {
+            let unique = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!("skills-manager-delete-{name}-{unique}"));
+            fs::create_dir_all(&root).expect("workspace should create");
+            Self { root }
+        }
+    }
+
+    impl Drop for TestWorkspace {
+        fn drop(&mut self) {
+            if self.root.exists() {
+                let _ = fs::remove_dir_all(&self.root);
+            }
+        }
     }
 
     fn open_project_only_database() -> Connection {

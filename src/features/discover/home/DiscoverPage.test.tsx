@@ -37,6 +37,6 @@ describe("DiscoverPage", () => {
       />
     );
 
-    expect(markup).toContain("Install from repository");
+    expect(markup).toContain("Install from Repository / Import from File");
   });
 });
