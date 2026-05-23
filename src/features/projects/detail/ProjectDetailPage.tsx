@@ -384,7 +384,16 @@ export function ProjectDetailPage({
       );
     } catch (reason) {
       replaceProjectSkill(previousSkill);
-      setError(errorMessage(reason));
+      const rawMessage = errorMessage(reason);
+      if (
+        rawMessage.includes("administrator") ||
+        rawMessage.includes("Developer Mode") ||
+        rawMessage.includes("symlink")
+      ) {
+        setError(t(catalog, language, "error.symlinkPermission"));
+      } else {
+        setError(rawMessage);
+      }
     } finally {
       setPendingSkillToggleIds((current) =>
         current.filter((item) => item !== skill.skillId)
@@ -511,7 +520,16 @@ export function ProjectDetailPage({
       setProjectGroups((current) =>
         restoreToggledRow(current, group, "groupId", compareProjectGroups)
       );
-      setError(errorMessage(reason));
+      const rawMessage = errorMessage(reason);
+      if (
+        rawMessage.includes("administrator") ||
+        rawMessage.includes("Developer Mode") ||
+        rawMessage.includes("symlink")
+      ) {
+        setError(t(catalog, language, "error.symlinkPermission"));
+      } else {
+        setError(rawMessage);
+      }
     } finally {
       setPendingGroupActionIds((current) => clearPendingRowId(current, group.groupId));
     }

@@ -492,5 +492,6 @@
   "skills.detail.leaveDialog.title": "离开技能详情？",
   "skills.detail.leaveDialog.copy": "当前文件还有未保存的编辑内容。",
   "skills.detail.leaveDialog.stay": "留在这里",
-  "skills.detail.leaveDialog.discard": "放弃并离开"
+  "skills.detail.leaveDialog.discard": "放弃并离开",
+  "error.symlinkPermission": "权限错误：无法创建 symlink。请以管理员身份启动应用，或开启 Windows 开发者模式。"
 }

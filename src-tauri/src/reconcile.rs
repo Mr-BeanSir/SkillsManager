@@ -27,6 +27,8 @@ pub enum ReconcileError {
         path: PathBuf,
         source: std::io::Error,
     },
+    #[error("{message}")]
+    SymlinkFailed { message: String },
 }
 
 #[tauri::command]
@@ -325,6 +327,7 @@ fn reconcile_expected_links_for_target_dirs(
     let mut reconciled_links = 0usize;
     let managed_root = normalize_path(managed_skills_root);
     let mut expected_by_target_dir = HashMap::<String, HashSet<String>>::new();
+    let mut first_link_error: Option<String> = None;
 
     for configured_target_dir in configured_target_dirs {
         expected_by_target_dir
@@ -345,6 +348,10 @@ fn reconcile_expected_links_for_target_dirs(
                 crate::fs_links::create_skill_link(&link_path, &expected_link.managed_target_path);
             if check.status == crate::fs_links::SkillLinkStatus::Linked {
                 reconciled_links += 1;
+            } else if check.status == crate::fs_links::SkillLinkStatus::Failed {
+                if first_link_error.is_none() {
+                    first_link_error = check.error_message;
+                }
             }
         }
     }
@@ -355,6 +362,10 @@ fn reconcile_expected_links_for_target_dirs(
             .get(&path_string(target_dir))
             .expect("configured target dir entry should exist");
         delete_stale_managed_links(target_dir, expected_link_paths, &managed_root);
+    }
+
+    if let Some(error_message) = first_link_error {
+        return Err(ReconcileError::SymlinkFailed { message: error_message });
     }
 
     Ok(ReconcileSummary { reconciled_links })

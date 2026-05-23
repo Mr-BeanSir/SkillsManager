@@ -492,5 +492,6 @@
   "skills.detail.leaveDialog.title": "Leave skill detail?",
   "skills.detail.leaveDialog.copy": "You have unsaved edits in the current file.",
   "skills.detail.leaveDialog.stay": "Stay here",
-  "skills.detail.leaveDialog.discard": "Discard and leave"
+  "skills.detail.leaveDialog.discard": "Discard and leave",
+  "error.symlinkPermission": "Permission error: Unable to create symlink. Please run as administrator or enable Windows Developer Mode."
 }
