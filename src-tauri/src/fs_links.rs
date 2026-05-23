@@ -110,7 +110,14 @@ pub fn delete_managed_skill_link(link_path: &Path, managed_skills_root: &Path) -
         };
     }
 
-    match fs::remove_file(link_path) {
+    // On Windows, directory symlinks require `remove_dir` instead of `remove_file`.
+    let remove_result = if metadata.is_dir() {
+        fs::remove_dir(link_path)
+    } else {
+        fs::remove_file(link_path)
+    };
+
+    match remove_result {
         Ok(()) => SkillLinkDelete {
             removed: true,
             status: SkillLinkStatus::Missing,

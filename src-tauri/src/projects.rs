@@ -215,16 +215,28 @@ fn open_project_directory_in_file_manager(path: &str) -> Result<(), ProjectError
         command
     };
 
-    let status = command
-        .status()
-        .map_err(|error| ProjectError::OpenDirectory(error.to_string()))?;
-
-    if status.success() {
+    // Windows explorer.exe returns exit code 1 even on success, so skip the exit-code check.
+    #[cfg(target_os = "windows")]
+    {
+        command
+            .status()
+            .map_err(|error| ProjectError::OpenDirectory(error.to_string()))?;
         Ok(())
-    } else {
-        Err(ProjectError::OpenDirectory(format!(
-            "command exited with status {status}"
-        )))
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let status = command
+            .status()
+            .map_err(|error| ProjectError::OpenDirectory(error.to_string()))?;
+
+        if status.success() {
+            Ok(())
+        } else {
+            Err(ProjectError::OpenDirectory(format!(
+                "command exited with status {status}"
+            )))
+        }
     }
 }
 

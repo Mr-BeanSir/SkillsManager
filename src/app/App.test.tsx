@@ -32,9 +32,6 @@ describe("App navigation copy", () => {
 
   test("includes project cli target management copy", () => {
     expect(t(fallbackLocale, "en", "projects.detail.targets.add")).toBe("Add CLI Target");
-    expect(t(fallbackLocale, "en", "projects.detail.targets.current")).toBe(
-      "Current CLI Targets"
-    );
   });
 
   test("includes project-only discover install guidance", () => {

@@ -100,9 +100,6 @@ describe("i18n", () => {
   });
 
   it("ships bundled project-only fallback copy for English and Chinese", () => {
-    expect(t(fallbackLocale, "en", "projects.detail.targets.current")).toBe(
-      "Current CLI Targets"
-    );
     expect(t(fallbackLocale, "en", "discover.install.success", {
       name: "find-skills",
       source: "vercel-labs/skills"

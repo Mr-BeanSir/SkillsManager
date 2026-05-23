@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { appNavItems } from "./appNav";
-import { MessageProvider } from "./message";
+import { MessageProvider } from "../shared/components/message";
 import { ConfirmDialog } from "../shared/components/ConfirmDialog";
 import {
   type AppPageState,

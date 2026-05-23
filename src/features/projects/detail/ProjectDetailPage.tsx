@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { message } from "../../../shared/components/message";
 import { Modal } from "../../../shared/components/Modal";
 import styles from "./ProjectDetailPage.module.css";
 import { listSkillGroups, type SkillGroup } from "../../groups/groupsApi";
@@ -19,11 +20,9 @@ import {
 } from "./projectDetailSelectionModel";
 import {
   applyOptimisticRemoval,
-  applyOptimisticToggle,
   clearPendingRowId,
   markPendingRowId,
-  restoreRemovedRow,
-  restoreToggledRow
+  restoreRemovedRow
 } from "./projectDetailRowState";
 import {
   addProjectGroup,
@@ -81,8 +80,6 @@ export function ProjectDetailPage({
   const [skillSearchQuery, setSkillSearchQuery] = useState("");
   const [groupSearchQuery, setGroupSearchQuery] = useState("");
   const [cliTargetSearchQuery, setCliTargetSearchQuery] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingSkillToggleIds, setPendingSkillToggleIds] = useState<string[]>([]);
@@ -93,8 +90,6 @@ export function ProjectDetailPage({
     let ignore = false;
 
     setIsLoading(true);
-    setError(null);
-    setStatus(null);
     setCliTargetSelectionIds([]);
     setPendingSkillToggleIds([]);
     setPendingGroupActionIds([]);
@@ -140,7 +135,7 @@ export function ProjectDetailPage({
       )
       .catch((reason: unknown) => {
         if (!ignore) {
-          setError(errorMessage(reason));
+          message.error(errorMessage(reason));
           setProject(null);
         }
       })
@@ -310,13 +305,11 @@ export function ProjectDetailPage({
 
     if (pendingSkillIds.length === 0) {
       closeSkillDialog();
-      setStatus(t(catalog, language, "projects.detail.skills.unchanged"));
+      message.info(t(catalog, language, "projects.detail.skills.unchanged"));
       return;
     }
 
     setIsSaving(true);
-    setError(null);
-    setStatus(null);
 
     try {
       const addedRecords: ProjectSkillRecord[] = [];
@@ -335,7 +328,7 @@ export function ProjectDetailPage({
         return [...merged.values()].sort(compareProjectSkills);
       });
       closeSkillDialog();
-      setStatus(
+      message.success(
         addedRecords.length === 1
           ? t(catalog, language, "projects.detail.skills.added", {
               name: addedRecords[0].skillName
@@ -345,7 +338,7 @@ export function ProjectDetailPage({
             })
       );
     } catch (reason) {
-      setError(errorMessage(reason));
+      message.error(errorMessage(reason));
     } finally {
       setIsSaving(false);
     }
@@ -356,23 +349,14 @@ export function ProjectDetailPage({
       return;
     }
 
-    const previousSkill = skill;
-    const optimisticSkill = {
-      ...skill,
-      enabled: !skill.enabled
-    };
-
     setPendingSkillToggleIds((current) => [...current, skill.skillId]);
-    setError(null);
-    setStatus(null);
-    replaceProjectSkill(optimisticSkill);
 
     try {
       const updated = skill.enabled
         ? await disableProjectSkill(projectId, skill.skillId)
         : await enableProjectSkill(projectId, skill.skillId);
       replaceProjectSkill(updated);
-      setStatus(
+      message.success(
         t(
           catalog,
           language,
@@ -383,16 +367,15 @@ export function ProjectDetailPage({
         )
       );
     } catch (reason) {
-      replaceProjectSkill(previousSkill);
       const rawMessage = errorMessage(reason);
       if (
         rawMessage.includes("administrator") ||
         rawMessage.includes("Developer Mode") ||
         rawMessage.includes("symlink")
       ) {
-        setError(t(catalog, language, "error.symlinkPermission"));
+        message.error(t(catalog, language, "error.symlinkPermission"));
       } else {
-        setError(rawMessage);
+        message.error(rawMessage);
       }
     } finally {
       setPendingSkillToggleIds((current) =>
@@ -417,21 +400,19 @@ export function ProjectDetailPage({
     }
 
     setIsSaving(true);
-    setError(null);
-    setStatus(null);
 
     try {
       await removeProjectSkill(projectId, skill.skillId);
       setProjectSkills((current) =>
         current.filter((item) => item.skillId !== skill.skillId)
       );
-      setStatus(
+      message.success(
         t(catalog, language, "projects.detail.skills.removed", {
           name: skill.skillName
         })
       );
     } catch (reason) {
-      setError(errorMessage(reason));
+      message.error(errorMessage(reason));
     } finally {
       setIsSaving(false);
     }
@@ -444,13 +425,11 @@ export function ProjectDetailPage({
 
     if (pendingGroupIds.length === 0) {
       closeGroupDialog();
-      setStatus(t(catalog, language, "projects.detail.groups.unchanged"));
+      message.info(t(catalog, language, "projects.detail.groups.unchanged"));
       return;
     }
 
     setIsSaving(true);
-    setError(null);
-    setStatus(null);
 
     try {
       const addedRecords: ProjectGroupRecord[] = [];
@@ -471,7 +450,7 @@ export function ProjectDetailPage({
       });
       setProjectSkills(relistedSkills);
       closeGroupDialog();
-      setStatus(
+      message.success(
         addedRecords.length === 1
           ? t(catalog, language, "projects.detail.groups.added", {
               name: addedRecords[0].groupName
@@ -481,7 +460,7 @@ export function ProjectDetailPage({
             })
       );
     } catch (reason) {
-      setError(errorMessage(reason));
+      message.error(errorMessage(reason));
     } finally {
       setIsSaving(false);
     }
@@ -493,11 +472,6 @@ export function ProjectDetailPage({
     }
 
     setPendingGroupActionIds((current) => markPendingRowId(current, group.groupId));
-    setError(null);
-    setStatus(null);
-    setProjectGroups((current) =>
-      applyOptimisticToggle(current, group, "groupId", compareProjectGroups)
-    );
 
     try {
       const updated = group.enabled
@@ -506,7 +480,7 @@ export function ProjectDetailPage({
       const relistedSkills = await listProjectSkills(projectId);
       replaceProjectGroup(updated);
       setProjectSkills(relistedSkills);
-      setStatus(
+      message.success(
         t(
           catalog,
           language,
@@ -517,18 +491,15 @@ export function ProjectDetailPage({
         )
       );
     } catch (reason) {
-      setProjectGroups((current) =>
-        restoreToggledRow(current, group, "groupId", compareProjectGroups)
-      );
       const rawMessage = errorMessage(reason);
       if (
         rawMessage.includes("administrator") ||
         rawMessage.includes("Developer Mode") ||
         rawMessage.includes("symlink")
       ) {
-        setError(t(catalog, language, "error.symlinkPermission"));
+        message.error(t(catalog, language, "error.symlinkPermission"));
       } else {
-        setError(rawMessage);
+        message.error(rawMessage);
       }
     } finally {
       setPendingGroupActionIds((current) => clearPendingRowId(current, group.groupId));
@@ -551,15 +522,13 @@ export function ProjectDetailPage({
     }
 
     setPendingGroupActionIds((current) => markPendingRowId(current, group.groupId));
-    setError(null);
-    setStatus(null);
     setProjectGroups((current) =>
       applyOptimisticRemoval(current, group.groupId, "groupId")
     );
 
     try {
       await removeProjectGroup(projectId, group.groupId);
-      setStatus(
+      message.success(
         t(catalog, language, "projects.detail.groups.removed", {
           name: group.groupName
         })
@@ -568,7 +537,7 @@ export function ProjectDetailPage({
       setProjectGroups((current) =>
         restoreRemovedRow(current, group, compareProjectGroups)
       );
-      setError(errorMessage(reason));
+      message.error(errorMessage(reason));
     } finally {
       setPendingGroupActionIds((current) => clearPendingRowId(current, group.groupId));
     }
@@ -581,13 +550,11 @@ export function ProjectDetailPage({
 
     if (pendingCliTargetIds.length === 0) {
       closeCliTargetDialog();
-      setStatus(t(catalog, language, "projects.detail.targets.unchanged"));
+      message.info(t(catalog, language, "projects.detail.targets.unchanged"));
       return;
     }
 
     setIsSaving(true);
-    setError(null);
-    setStatus(null);
 
     try {
       const addedRecords: ProjectCliTargetRecord[] = [];
@@ -606,7 +573,7 @@ export function ProjectDetailPage({
         return [...merged.values()].sort(compareProjectCliTargets);
       });
       closeCliTargetDialog();
-      setStatus(
+      message.success(
         addedRecords.length === 1
           ? t(catalog, language, "projects.detail.targets.added", {
               name: addedRecords[0].displayName
@@ -616,7 +583,7 @@ export function ProjectDetailPage({
             })
       );
     } catch (reason) {
-      setError(errorMessage(reason));
+      message.error(errorMessage(reason));
     } finally {
       setIsSaving(false);
     }
@@ -627,12 +594,10 @@ export function ProjectDetailPage({
       return;
     }
 
-    setError(null);
-
     try {
       await openProjectDirectory(project.path);
     } catch (reason) {
-      setError(errorMessage(reason));
+      message.error(errorMessage(reason));
     }
   }
 
@@ -654,15 +619,13 @@ export function ProjectDetailPage({
     setPendingCliTargetActionIds((current) =>
       markPendingRowId(current, cliTarget.cliTargetId)
     );
-    setError(null);
-    setStatus(null);
     setProjectCliTargets((current) =>
       applyOptimisticRemoval(current, cliTarget.cliTargetId, "cliTargetId")
     );
 
     try {
       await removeProjectCliTarget(projectId, cliTarget.cliTargetId);
-      setStatus(
+      message.success(
         t(catalog, language, "projects.detail.targets.removed", {
           name: cliTarget.displayName
         })
@@ -671,7 +634,7 @@ export function ProjectDetailPage({
       setProjectCliTargets((current) =>
         restoreRemovedRow(current, cliTarget, compareProjectCliTargets)
       );
-      setError(errorMessage(reason));
+      message.error(errorMessage(reason));
     } finally {
       setPendingCliTargetActionIds((current) =>
         clearPendingRowId(current, cliTarget.cliTargetId)
@@ -680,19 +643,35 @@ export function ProjectDetailPage({
   }
 
   function replaceProjectSkill(updated: ProjectSkillRecord) {
-    setProjectSkills((current) =>
-      current
-        .map((item) => (item.skillId === updated.skillId ? updated : item))
-        .sort(compareProjectSkills)
-    );
+    setProjectSkills((current) => {
+      const replaced = current.map((item) =>
+        item.skillId === updated.skillId ? updated : item
+      );
+      const index = replaced.findIndex((item) => item.skillId === updated.skillId);
+      if (
+        index > 0 && compareProjectSkills(replaced[index - 1], replaced[index]) > 0 ||
+        index < replaced.length - 1 && compareProjectSkills(replaced[index], replaced[index + 1]) > 0
+      ) {
+        return [...replaced].sort(compareProjectSkills);
+      }
+      return replaced;
+    });
   }
 
   function replaceProjectGroup(updated: ProjectGroupRecord) {
-    setProjectGroups((current) =>
-      current
-        .map((item) => (item.groupId === updated.groupId ? updated : item))
-        .sort(compareProjectGroups)
-    );
+    setProjectGroups((current) => {
+      const replaced = current.map((item) =>
+        item.groupId === updated.groupId ? updated : item
+      );
+      const index = replaced.findIndex((item) => item.groupId === updated.groupId);
+      if (
+        index > 0 && compareProjectGroups(replaced[index - 1], replaced[index]) > 0 ||
+        index < replaced.length - 1 && compareProjectGroups(replaced[index], replaced[index + 1]) > 0
+      ) {
+        return [...replaced].sort(compareProjectGroups);
+      }
+      return replaced;
+    });
   }
 
   if (isLoading && !project) {
@@ -728,7 +707,7 @@ export function ProjectDetailPage({
               {t(catalog, language, "projects.detail.missing.title")}
             </h1>
             <p className={styles.detailCopy}>
-              {error ?? t(catalog, language, "projects.detail.missing.copy")}
+              {t(catalog, language, "projects.detail.missing.copy")}
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -795,6 +774,9 @@ export function ProjectDetailPage({
             </h2>
             <p>{t(catalog, language, "projects.detail.description")}</p>
           </div>
+        </div>
+
+        <div className={styles.tabToolbar}>
           <div className="tab-list" role="tablist" aria-label={t(catalog, language, "projects.detail.tabs.label")}>
             {(
               [
@@ -815,40 +797,45 @@ export function ProjectDetailPage({
               </button>
             ))}
           </div>
+          {activeTab === "skills" ? (
+            <button
+              className="button button-primary"
+              disabled={isSaving || installedSkills.length === 0}
+              onClick={openSkillDialog}
+              type="button"
+            >
+              <Plus size={16} weight="bold" aria-hidden="true" />
+              {t(catalog, language, "projects.detail.skills.add")}
+            </button>
+          ) : null}
+          {activeTab === "groups" ? (
+            <button
+              className="button button-primary"
+              disabled={isSaving || availableGroups.length === 0}
+              onClick={openGroupDialog}
+              type="button"
+            >
+              <Plus size={16} weight="bold" aria-hidden="true" />
+              {t(catalog, language, "projects.detail.groups.add")}
+            </button>
+          ) : null}
+          {activeTab === "targets" ? (
+            <button
+              className="button button-primary"
+              disabled={isSaving || addableCliTargets.length === 0}
+              onClick={openCliTargetDialog}
+              type="button"
+            >
+              <Plus size={16} weight="bold" aria-hidden="true" />
+              {t(catalog, language, "projects.detail.targets.add")}
+            </button>
+          ) : null}
         </div>
 
-        {error ? (
-          <p className="form-error panel-message" role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        {status ? (
-          <p className="form-success panel-message" role="status">
-            {status}
-          </p>
-        ) : null}
+        <hr className={styles.divider} />
 
         {activeTab === "skills" ? (
           <section className={styles.soloSection} aria-labelledby="project-skills-title">
-            <div className={`${styles.sectionHeaderRow} ${styles.sectionHeaderRowStatic}`}>
-              <div className={styles.subsectionHeader}>
-                <h3 id="project-skills-title">
-                  {t(catalog, language, "projects.detail.skills.current")}
-                </h3>
-                <p>{t(catalog, language, "projects.detail.skills.currentDescription")}</p>
-              </div>
-              <button
-                className="button button-primary"
-                disabled={isSaving || installedSkills.length === 0}
-                onClick={openSkillDialog}
-                type="button"
-              >
-                <Plus size={16} weight="bold" aria-hidden="true" />
-                {t(catalog, language, "projects.detail.skills.add")}
-              </button>
-            </div>
-
             <div className="table-wrap">
               <table>
                 <thead>
@@ -913,15 +900,13 @@ export function ProjectDetailPage({
                             onClick={() => void handleToggleSkill(skill)}
                             type="button"
                           >
-                            {pendingSkillToggleIds.includes(skill.skillId)
-                              ? t(catalog, language, "settings.reconcile.saving")
-                              : t(
-                                  catalog,
-                                  language,
-                                  skill.enabled
-                                    ? "projects.detail.skills.action.disable"
-                                    : "projects.detail.skills.action.enable"
-                                )}
+                            {t(
+                              catalog,
+                              language,
+                              skill.enabled
+                                ? "projects.detail.skills.action.disable"
+                                : "projects.detail.skills.action.enable"
+                            )}
                           </button>
                           <button
                             aria-label={t(catalog, language, "projects.detail.skills.action.removeLabel", {
@@ -948,24 +933,6 @@ export function ProjectDetailPage({
 
         {activeTab === "groups" ? (
           <section className={styles.soloSection} aria-labelledby="project-groups-title">
-            <div className={`${styles.sectionHeaderRow} ${styles.sectionHeaderRowStatic}`}>
-              <div className={styles.subsectionHeader}>
-                <h3 id="project-groups-title">
-                  {t(catalog, language, "projects.detail.groups.current")}
-                </h3>
-                <p>{t(catalog, language, "projects.detail.groups.currentDescription")}</p>
-              </div>
-              <button
-                className="button button-primary"
-                disabled={isSaving || availableGroups.length === 0}
-                onClick={openGroupDialog}
-                type="button"
-              >
-                <Plus size={16} weight="bold" aria-hidden="true" />
-                {t(catalog, language, "projects.detail.groups.add")}
-              </button>
-            </div>
-
             <div className="table-wrap">
               <table>
                 <thead>
@@ -1024,15 +991,13 @@ export function ProjectDetailPage({
                             onClick={() => void handleToggleGroup(group)}
                             type="button"
                           >
-                            {pendingGroupActionIds.includes(group.groupId)
-                              ? t(catalog, language, "settings.reconcile.saving")
-                              : t(
-                                  catalog,
-                                  language,
-                                  group.enabled
-                                    ? "projects.detail.groups.action.disable"
-                                    : "projects.detail.groups.action.enable"
-                                )}
+                            {t(
+                              catalog,
+                              language,
+                              group.enabled
+                                ? "projects.detail.groups.action.disable"
+                                : "projects.detail.groups.action.enable"
+                            )}
                           </button>
                           <button
                             aria-label={t(catalog, language, "projects.detail.groups.action.removeLabel", {
@@ -1057,24 +1022,6 @@ export function ProjectDetailPage({
 
         {activeTab === "targets" ? (
           <section className={styles.soloSection} aria-labelledby="project-targets-title">
-            <div className={`${styles.sectionHeaderRow} ${styles.sectionHeaderRowStatic}`}>
-              <div className={styles.subsectionHeader}>
-                <h3 id="project-targets-title">
-                  {t(catalog, language, "projects.detail.targets.current")}
-                </h3>
-                <p>{t(catalog, language, "projects.detail.targets.currentDescription")}</p>
-              </div>
-              <button
-                className="button button-primary"
-                disabled={isSaving || addableCliTargets.length === 0}
-                onClick={openCliTargetDialog}
-                type="button"
-              >
-                <Plus size={16} weight="bold" aria-hidden="true" />
-                {t(catalog, language, "projects.detail.targets.add")}
-              </button>
-            </div>
-
             <div className="table-wrap">
               <table>
                 <thead>

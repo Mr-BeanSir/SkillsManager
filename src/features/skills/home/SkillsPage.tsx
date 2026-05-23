@@ -307,7 +307,6 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
                 <th scope="col">{t(catalog, language, "skills.table.name")}</th>
                 <th scope="col">{t(catalog, language, "skills.table.source")}</th>
                 <th scope="col">{t(catalog, language, "skills.table.projects")}</th>
-                <th scope="col">{t(catalog, language, "skills.table.usage")}</th>
                 <th scope="col">{t(catalog, language, "skills.table.update")}</th>
                 <th scope="col">{t(catalog, language, "skills.table.actions")}</th>
               </tr>
@@ -315,13 +314,13 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6}>{t(catalog, language, "skills.loading")}</td>
+                  <td colSpan={5}>{t(catalog, language, "skills.loading")}</td>
                 </tr>
               ) : null}
 
               {!isLoading && filteredSkills.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={5}>
                     <div className="empty-state">
                       <Package size={20} weight="bold" aria-hidden="true" />
                       <strong>{t(catalog, language, "skills.empty.title")}</strong>
@@ -366,21 +365,6 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
                         count: skill.attachedProjectCount
                       })}
                     </span>
-                  </td>
-                  <td>
-                    {skill.activeProjectCount > 0 ? (
-                      <span className="status-badge status-current">
-                        {t(catalog, language, "skills.status.inUse")}
-                      </span>
-                    ) : skill.attachedProjectCount > 0 ? (
-                      <span className="status-badge status-update">
-                        {t(catalog, language, "skills.status.disabled")}
-                      </span>
-                    ) : (
-                      <span className="status-badge status-project">
-                        {t(catalog, language, "skills.status.unused")}
-                      </span>
-                    )}
                   </td>
                   <td>
                     {rowState?.updateLabel === "loading" ? (

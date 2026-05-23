@@ -8,7 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
-import { message } from "../../../app/message";
+import { message } from "../../../shared/components/message";
 import { Modal } from "../../../shared/components/Modal";
 import { readSettings } from "../../settings/settingsApi";
 import styles from "./DiscoverPage.module.css";
