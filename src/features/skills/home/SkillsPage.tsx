@@ -4,6 +4,7 @@ import {
   MagnifyingGlass,
   Package
 } from "@phosphor-icons/react";
+import styles from "./SkillsPage.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
 import { readSettings } from "../../settings/settingsApi";
@@ -17,7 +18,7 @@ import {
   type SkillUpdateRepositoryErrorRecord,
   type SkillUpdateStatusRecord
 } from "../skillsApi";
-import { buildSkillsPage, buildSkillsSummary, filterInstalledSkills } from "../skillsPageModel";
+import { buildSkillsPage, buildSkillsSummary, extractUniqueSourceRefs, filterBySourceRef, filterInstalledSkills } from "../skillsPageModel";
 import {
   buildInitialUpdateRuntimeState,
   buildUpdateRuntimeView,
@@ -45,6 +46,8 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [viewMode, setViewMode] = useState<"default" | "source">("default");
+  const [selectedSourceRef, setSelectedSourceRef] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -88,7 +91,9 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
     };
   }, []);
 
-  const filteredSkills = filterInstalledSkills(skills, query);
+  const sourceFiltered = filterBySourceRef(skills, viewMode === "source" ? selectedSourceRef : null);
+  const filteredSkills = filterInstalledSkills(sourceFiltered, query);
+  const uniqueSourceRefs = useMemo(() => extractUniqueSourceRefs(skills), [skills]);
   const page = useMemo(
     () => buildSkillsPage(filteredSkills, currentPage, pageSize),
     [filteredSkills, currentPage, pageSize]
@@ -178,18 +183,6 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
           <h1 id="skills-title">{t(catalog, language, "skills.title")}</h1>
         </div>
         <div className="toolbar" aria-label={t(catalog, language, "skills.actionsLabel")}>
-          <label className="search-field">
-            <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
-            <span className="sr-only">{t(catalog, language, "skills.searchLabel")}</span>
-            <input
-              autoComplete="off"
-              name="skill-search"
-              onChange={(event) => { setQuery(event.target.value); setCurrentPage(1); }}
-              placeholder={t(catalog, language, "skills.searchPlaceholder")}
-              type="search"
-              value={query}
-            />
-          </label>
           {updateRuntimeView.showUpdateAll ? (
             <button
               className="button button-primary"
@@ -241,6 +234,64 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
             <h2 id="skills-table-title">{t(catalog, language, "skills.table.title")}</h2>
             <p>{t(catalog, language, "skills.table.description")}</p>
           </div>
+        </div>
+
+        <div className={styles.controlBody}>
+          <div className={styles.controlLeft}>
+            <div
+              className="tab-list"
+              role="group"
+              aria-label={t(catalog, language, "skills.viewMode.label")}
+            >
+              <button
+                aria-pressed={viewMode === "default"}
+                className={viewMode === "default" ? "tab-button tab-button-active" : "tab-button"}
+                onClick={() => { setViewMode("default"); setSelectedSourceRef(null); setCurrentPage(1); }}
+                type="button"
+              >
+                {t(catalog, language, "skills.viewMode.default")}
+              </button>
+              <button
+                aria-pressed={viewMode === "source"}
+                className={viewMode === "source" ? "tab-button tab-button-active" : "tab-button"}
+                onClick={() => { setViewMode("source"); setCurrentPage(1); }}
+                type="button"
+              >
+                {t(catalog, language, "skills.viewMode.source")}
+              </button>
+            </div>
+            {viewMode === "source" ? (
+              <select
+                style={{ minWidth: "200px", border: "1px solid #eaeaea", borderRadius: "8px", background: "#ffffff", color: "#2f3437", padding: "8px 10px", fontSize: "13px" }}
+                value={selectedSourceRef ?? ""}
+                onChange={(event) => {
+                  setSelectedSourceRef(event.target.value || null);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="">
+                  {t(catalog, language, "skills.viewMode.allSources")}
+                </option>
+                {uniqueSourceRefs.map((ref) => (
+                  <option key={ref} value={ref}>
+                    {ref}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
+          <label className={`search-field ${styles.searchFixed}`}>
+            <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
+            <span className="sr-only">{t(catalog, language, "skills.searchLabel")}</span>
+            <input
+              autoComplete="off"
+              name="skill-search"
+              onChange={(event) => { setQuery(event.target.value); setCurrentPage(1); }}
+              placeholder={t(catalog, language, "skills.searchPlaceholder")}
+              type="search"
+              value={query}
+            />
+          </label>
         </div>
 
         {error ? (

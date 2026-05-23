@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { InstalledSkill } from "./skillsApi";
-import { buildSkillsSummary, filterInstalledSkills } from "./skillsPageModel";
+import { buildSkillsSummary, extractUniqueSourceRefs, filterBySourceRef, filterInstalledSkills } from "./skillsPageModel";
 
 const skills: InstalledSkill[] = [
   {
@@ -87,5 +87,27 @@ describe("skillsPageModel", () => {
     expect(filterInstalledSkills(skills, "admin")).toHaveLength(2);
     expect(filterInstalledSkills(skills, "docs-site")[0]?.id).toBe("skill-react");
     expect(filterInstalledSkills(skills, "raw_url")[0]?.id).toBe("skill-eslint");
+  });
+
+  test("filterBySourceRef returns all skills when sourceRef is null", () => {
+    expect(filterBySourceRef(skills, null)).toHaveLength(3);
+  });
+
+  test("filterBySourceRef returns only matching skills", () => {
+    const result = filterBySourceRef(skills, "vercel-labs/skills");
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("skill-react");
+  });
+
+  test("filterBySourceRef returns empty array when nothing matches", () => {
+    expect(filterBySourceRef(skills, "nonexistent")).toHaveLength(0);
+  });
+
+  test("extractUniqueSourceRefs returns sorted, deduplicated source refs", () => {
+    expect(extractUniqueSourceRefs(skills)).toEqual([
+      "acme/unused",
+      "https://example.com/SKILL.md",
+      "vercel-labs/skills"
+    ]);
   });
 });

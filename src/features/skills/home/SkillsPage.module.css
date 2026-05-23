@@ -1,0 +1,20 @@
+.controlBody {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.controlLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchFixed {
+  width: 260px;
+  flex-shrink: 0;
+}

@@ -7,6 +7,22 @@ export type SkillsSummary = {
   updates: number;
 };
 
+export function filterBySourceRef(
+  skills: InstalledSkill[],
+  sourceRef: string | null
+): InstalledSkill[] {
+  if (!sourceRef) {
+    return skills;
+  }
+
+  return skills.filter((skill) => skill.sourceRef === sourceRef);
+}
+
+export function extractUniqueSourceRefs(skills: InstalledSkill[]): string[] {
+  const refs = new Set(skills.map((skill) => skill.sourceRef));
+  return [...refs].sort((a, b) => a.localeCompare(b));
+}
+
 export function filterInstalledSkills(skills: InstalledSkill[], query: string) {
   const term = query.trim().toLowerCase();
 
