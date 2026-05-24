@@ -1,0 +1,45 @@
+.content {
+  display: grid;
+  gap: 0;
+}
+
+.meta {
+  padding: 18px;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.metaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.metaTitle {
+  color: #111111;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.metaDescription {
+  color: #6b665f;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.metaVersion {
+  color: #9b9a97;
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+.skillsTable {
+  padding: 0;
+  overflow: visible;
+}
+
+.statusBar {
+  padding: 0 18px;
+}

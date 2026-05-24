@@ -21,7 +21,9 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       should_release: ${{ steps.version.outputs.should_release }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:
@@ -29,7 +31,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-
       - name: Create Release PR
         id: changesets
         uses: changesets/action@v1
@@ -39,6 +40,7 @@ jobs:
           commit: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Check if release is needed
         id: version
@@ -84,7 +86,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:

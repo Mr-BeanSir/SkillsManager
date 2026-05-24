@@ -6,6 +6,7 @@ import {
   Package,
   Plus,
   TrendUp,
+  ArrowClockwise,
 } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
@@ -35,6 +36,8 @@ import {
   type FileImportProgress,
   type FileImportType
 } from "../../skills/fileImportApi";
+import { CollectionDetailModal } from "./CollectionDetailModal";
+import { refreshCollectionIndex } from "../../collections/collectionsApi";
 
 type DiscoverPageProps = {
   catalog: I18nCatalog;
@@ -74,6 +77,8 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
   const [isCheckingFile, setIsCheckingFile] = useState(false);
   const [isInstallingFile, setIsInstallingFile] = useState(false);
   const [fileProgress, setFileProgress] = useState<FileImportProgress | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<import("../../collections/collectionsApi").CollectionIndexEntry | null>(null);
+  const [isRefreshingCollections, setIsRefreshingCollections] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -174,6 +179,18 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
       ...current,
       page
     }));
+  }
+
+  async function handleRefreshCollections() {
+    setIsRefreshingCollections(true);
+    try {
+      await refreshCollectionIndex();
+      setState((current) => ({ ...current, page: 1 }));
+    } catch {
+      // ignore
+    } finally {
+      setIsRefreshingCollections(false);
+    }
   }
 
   async function handleInstallDiscoveredSkill(skill: DiscoverSkill) {
@@ -401,24 +418,38 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
             })}
           </div>
 
-          <form className={styles.searchForm} onSubmit={handleSearch}>
-            <label className="search-field">
-              <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
-              <span className="sr-only">{t(catalog, language, "discover.search.label")}</span>
-              <input
-                autoComplete="off"
-                name="discover-search"
-                onChange={(event) => setDraftQuery(event.target.value)}
-                placeholder={t(catalog, language, "discover.search.placeholder")}
-                type="search"
-                value={draftQuery}
-              />
-            </label>
-            <button className="button button-primary" type="submit">
-              <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
-              {t(catalog, language, "discover.search.submit")}
+          {state.entry === "collections" ? (
+            <button
+              className="button button-secondary"
+              disabled={isRefreshingCollections}
+              onClick={() => void handleRefreshCollections()}
+              type="button"
+            >
+              <ArrowClockwise size={16} weight="bold" aria-hidden="true" />
+              {isRefreshingCollections
+                ? t(catalog, language, "collections.detail.installing")
+                : t(catalog, language, "collections.refresh")}
             </button>
-          </form>
+          ) : (
+            <form className={styles.searchForm} onSubmit={handleSearch}>
+              <label className="search-field">
+                <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
+                <span className="sr-only">{t(catalog, language, "discover.search.label")}</span>
+                <input
+                  autoComplete="off"
+                  name="discover-search"
+                  onChange={(event) => setDraftQuery(event.target.value)}
+                  placeholder={t(catalog, language, "discover.search.placeholder")}
+                  type="search"
+                  value={draftQuery}
+                />
+              </label>
+              <button className="button button-primary" type="submit">
+                <MagnifyingGlass size={16} weight="bold" aria-hidden="true" />
+                {t(catalog, language, "discover.search.submit")}
+              </button>
+            </form>
+          )}
         </div>
       </section>
 
@@ -429,10 +460,22 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
       >
         <div className="panel-header">
           <div>
-            <h2 id="discover-results-title">{t(catalog, language, "discover.results.title")}</h2>
-            <p>{t(catalog, language, "discover.results.description")}</p>
+            <h2 id="discover-results-title">
+              {state.entry === "collections"
+                ? t(catalog, language, "discover.collections.title")
+                : t(catalog, language, "discover.results.title")}
+            </h2>
+            <p>
+              {state.entry === "collections"
+                ? t(catalog, language, "discover.collections.description")
+                : t(catalog, language, "discover.results.description")}
+            </p>
           </div>
-          <TrendUp size={20} weight="bold" aria-hidden="true" />
+          {state.entry === "collections" ? (
+            <Package size={20} weight="bold" aria-hidden="true" />
+          ) : (
+            <TrendUp size={20} weight="bold" aria-hidden="true" />
+          )}
         </div>
 
         {error ? (
@@ -442,89 +485,157 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
         ) : null}
 
         <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{t(catalog, language, "discover.table.name")}</th>
-                <th scope="col">{t(catalog, language, "discover.table.source")}</th>
-                <th scope="col">{t(catalog, language, "discover.table.tags")}</th>
-                <th scope="col">{t(catalog, language, "discover.table.installs")}</th>
-                <th scope="col">{t(catalog, language, "discover.table.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
+          {state.entry === "collections" ? (
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={5}>{t(catalog, language, "discover.loading")}</td>
+                  <th scope="col">{t(catalog, language, "collections.table.name")}</th>
+                  <th scope="col">{t(catalog, language, "collections.table.description-col")}</th>
+                  <th scope="col">{t(catalog, language, "collections.table.version")}</th>
+                  <th scope="col">{t(catalog, language, "collections.table.totalSkills")}</th>
+                  <th scope="col">{t(catalog, language, "collections.table.actions")}</th>
                 </tr>
-              ) : null}
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={5}>{t(catalog, language, "collections.loading")}</td>
+                  </tr>
+                ) : null}
 
-              {!isLoading && result?.items.length === 0 ? (
+                {!isLoading && result?.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="empty-state">
+                        <Package size={20} weight="bold" aria-hidden="true" />
+                        <strong>{t(catalog, language, "discover.collections.empty.title")}</strong>
+                        <p>{t(catalog, language, "discover.collections.empty.copy")}</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+
+                {!isLoading
+                  ? result?.items.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <strong className="table-primary">{item.name}</strong>
+                        </td>
+                        <td>
+                          <span className="table-secondary">{item.description}</span>
+                        </td>
+                        <td>
+                          <span className="table-primary">{item.version ?? ""}</span>
+                        </td>
+                        <td className="number-cell">{formatNumber(item.installs)}</td>
+                        <td>
+                          <div className="row-actions">
+                            <button
+                              aria-label={`${t(catalog, language, "discover.collections.action.viewDetail")} ${item.name}`}
+                              className="icon-button"
+                              onClick={() => setSelectedCollection({
+                                title: item.name,
+                                description: item.description ?? "",
+                                version: item.version ?? "",
+                                totalSkills: item.installs,
+                                file: item.id
+                              })}
+                              type="button"
+                            >
+                              <Eye size={18} weight="bold" aria-hidden="true" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  : null}
+              </tbody>
+            </table>
+          ) : (
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={5}>
-                    <div className="empty-state">
-                      <Package size={20} weight="bold" aria-hidden="true" />
-                      <strong>{t(catalog, language, "discover.empty.title")}</strong>
-                      <p>{t(catalog, language, "discover.empty.copy")}</p>
-                    </div>
-                  </td>
+                  <th scope="col">{t(catalog, language, "discover.table.name")}</th>
+                  <th scope="col">{t(catalog, language, "discover.table.source")}</th>
+                  <th scope="col">{t(catalog, language, "discover.table.tags")}</th>
+                  <th scope="col">{t(catalog, language, "discover.table.installs")}</th>
+                  <th scope="col">{t(catalog, language, "discover.table.actions")}</th>
                 </tr>
-              ) : null}
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={5}>{t(catalog, language, "discover.loading")}</td>
+                  </tr>
+                ) : null}
 
-              {!isLoading
-                ? result?.items.map((skill) => (
-                    <tr key={skill.id}>
-                      <td>
-                        <strong className="table-primary">{skill.name}</strong>
-                        {skill.description ? (
-                          <span className="table-secondary">{skill.description}</span>
-                        ) : null}
-                      </td>
-                      <td>
-                        <span className="table-primary">{skill.sourceRef}</span>
-                        <span className="table-secondary">{skill.skillPath}</span>
-                      </td>
-                      <td>
-                        <div className="tag-list">
-                          {skill.tags.map((tag) => (
-                            <span className="status-badge status-custom" key={tag}>
-                              {tag}
-                            </span>
-                          ))}
-                          {skill.isOfficial ? (
-                            <span className="status-badge status-global">
-                              {t(catalog, language, "discover.remote.official")}
-                            </span>
+                {!isLoading && result?.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="empty-state">
+                        <Package size={20} weight="bold" aria-hidden="true" />
+                        <strong>{t(catalog, language, "discover.empty.title")}</strong>
+                        <p>{t(catalog, language, "discover.empty.copy")}</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+
+                {!isLoading
+                  ? result?.items.map((skill) => (
+                      <tr key={skill.id}>
+                        <td>
+                          <strong className="table-primary">{skill.name}</strong>
+                          {skill.description ? (
+                            <span className="table-secondary">{skill.description}</span>
                           ) : null}
-                        </div>
-                      </td>
-                      <td className="number-cell">{formatNumber(skill.installs)}</td>
-                      <td>
-                        <div className="row-actions">
-                          <button
-                            aria-label={`Open ${skill.name} details`}
-                            className="icon-button"
-                            onClick={() => onOpenRemoteSkill(skill)}
-                            type="button"
-                          >
-                            <Eye size={18} weight="bold" aria-hidden="true" />
-                          </button>
-                          <button
-                            aria-label={`Install ${skill.name}`}
-                            className="icon-button"
-                            disabled={installingSkillId !== null}
-                            onClick={() => void handleInstallDiscoveredSkill(skill)}
-                            type="button"
-                          >
-                            <DownloadSimple size={18} weight="bold" aria-hidden="true" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                : null}
-            </tbody>
-          </table>
+                        </td>
+                        <td>
+                          <span className="table-primary">{skill.sourceRef}</span>
+                          <span className="table-secondary">{skill.skillPath}</span>
+                        </td>
+                        <td>
+                          <div className="tag-list">
+                            {skill.tags.map((tag) => (
+                              <span className="status-badge status-custom" key={tag}>
+                                {tag}
+                              </span>
+                            ))}
+                            {skill.isOfficial ? (
+                              <span className="status-badge status-global">
+                                {t(catalog, language, "discover.remote.official")}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="number-cell">{formatNumber(skill.installs)}</td>
+                        <td>
+                          <div className="row-actions">
+                            <button
+                              aria-label={`Open ${skill.name} details`}
+                              className="icon-button"
+                              onClick={() => onOpenRemoteSkill(skill)}
+                              type="button"
+                            >
+                              <Eye size={18} weight="bold" aria-hidden="true" />
+                            </button>
+                            <button
+                              aria-label={`Install ${skill.name}`}
+                              className="icon-button"
+                              disabled={installingSkillId !== null}
+                              onClick={() => void handleInstallDiscoveredSkill(skill)}
+                              type="button"
+                            >
+                              <DownloadSimple size={18} weight="bold" aria-hidden="true" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  : null}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div
@@ -782,6 +893,18 @@ export function DiscoverPage({ catalog, language, onOpenRemoteSkill }: DiscoverP
             </div>
           )}
         </Modal>
+      ) : null}
+
+      {selectedCollection ? (
+        <CollectionDetailModal
+          catalog={catalog}
+          entry={selectedCollection}
+          language={language}
+          onClose={() => setSelectedCollection(null)}
+          onInstalled={() => {
+            setSelectedCollection(null);
+          }}
+        />
       ) : null}
     </section>
   );

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::io::Read;
+
 
 const GITHUB_REPO: &str = "Mr-BeanSir/SkillsManager";
 
@@ -89,13 +89,10 @@ pub fn get_app_version() -> String {
 pub async fn check_app_update() -> Result<Option<UpdateInfo>, String> {
     let url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
 
-    let body = ureq::get(&url)
-        .set("Accept", "application/vnd.github+json")
-        .set("User-Agent", "SkillsManager")
-        .call()
-        .map_err(|e| format!("Failed to fetch release info: {e}"))?
-        .into_string()
-        .map_err(|e| format!("Failed to read response: {e}"))?;
+    let mut headers = std::collections::HashMap::new();
+    headers.insert("Accept", "application/vnd.github+json");
+    let body = crate::http::fetch_text(&url, &headers)
+        .map_err(|e| format!("Failed to fetch release info: {e}"))?;
 
     let release: GitHubRelease =
         serde_json::from_str(&body).map_err(|e| format!("Failed to parse release: {e}"))?;
@@ -135,49 +132,23 @@ pub async fn download_app_update(
         .to_string();
     let file_path = temp_dir.join(&filename);
 
-    let response = ureq::get(&url)
-        .set("User-Agent", "SkillsManager")
-        .call()
-        .map_err(|e| format!("Failed to start download: {e}"))?;
-
-    let total_size: u64 = response
-        .header("Content-Length")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0);
-
-    let mut reader = response.into_reader();
     let mut file =
         std::fs::File::create(&file_path).map_err(|e| format!("Failed to create file: {e}"))?;
 
-    let mut downloaded: u64 = 0;
-    let mut buffer = [0u8; 8192];
-
-    loop {
-        let bytes_read = reader
-            .read(&mut buffer)
-            .map_err(|e| format!("Download read error: {e}"))?;
-
-        if bytes_read == 0 {
-            break;
-        }
-
-        std::io::Write::write_all(&mut file, &buffer[..bytes_read])
-            .map_err(|e| format!("Write error: {e}"))?;
-
-        downloaded += bytes_read as u64;
-
+    let progress_channel = &on_progress;
+    crate::http::download_to_writer(&url, &mut file, Some(&|downloaded, total_size| {
         let percent = if total_size > 0 {
             ((downloaded as f64 / total_size as f64) * 100.0) as u8
         } else {
             0
         };
-
-        let _ = on_progress.send(DownloadProgress {
+        let _ = progress_channel.send(DownloadProgress {
             downloaded,
             total: total_size,
             percent,
         });
-    }
+    }))
+    .map_err(|e| format!("Download failed: {e}"))?;
 
     Ok(file_path.to_string_lossy().to_string())
 }

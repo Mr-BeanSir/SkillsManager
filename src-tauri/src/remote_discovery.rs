@@ -346,12 +346,9 @@ fn clamp_page(page: u32, total_pages: u32) -> u32 {
 }
 
 fn fetch_url(url: &str) -> Result<String, RemoteDiscoveryError> {
-    ureq::get(url)
-        .set("User-Agent", "SkillsManager/0.1")
-        .set("Accept", "application/json,text/html")
-        .call()
-        .map_err(|error| RemoteDiscoveryError::Request(error.to_string()))?
-        .into_string()
+    let mut headers = std::collections::HashMap::new();
+    headers.insert("Accept", "application/json,text/html");
+    crate::http::fetch_text(url, &headers)
         .map_err(|error| RemoteDiscoveryError::Request(error.to_string()))
 }
 

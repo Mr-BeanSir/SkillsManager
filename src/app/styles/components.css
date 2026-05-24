@@ -116,7 +116,7 @@
 
 .panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
   border-bottom: 1px solid #eaeaea;
@@ -219,12 +219,16 @@
 }
 
 .modal-panel {
-  width: min(720px, 100%);
+  width: min(800px, 100%);
   max-height: min(90vh, 820px);
   overflow-y: auto;
   border: 1px solid #eaeaea;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.modal-panel table {
+  min-width: 0;
 }
 
 .modal-panel-compact {
@@ -425,3 +429,102 @@
 .empty-state strong {
   color: #111111;
 }
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 52px 16px;
+  text-align: center;
+}
+
+.loading-state p {
+  color: #787774;
+  font-size: 14px;
+}
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 52px 16px;
+  text-align: center;
+  color: #d86b72;
+}
+
+.error-state p {
+  font-size: 14px;
+  margin: 0;
+}
+
+.error-state .error-detail {
+  color: #9b9a97;
+  font-size: 12px;
+  font-family: "Geist Mono", "SF Mono", Consolas, monospace;
+  max-width: 400px;
+  word-break: break-all;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.tooltip-trigger {
+  position: relative;
+  display: inline;
+}
+
+.tooltip-content {
+  position: absolute;
+  z-index: 50;
+  border: 1px solid #eaeaea;
+  border-radius: 6px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 6px 10px;
+  white-space: normal;
+  word-break: break-word;
+  pointer-events: auto;
+  user-select: text;
+  max-width: 260px;
+}
+
+
+.tooltip-top {
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+}
+
+.tooltip-bottom {
+  top: calc(100% + 6px);
+  transform: translateX(10%);
+}
+
+.tooltip-left {
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tooltip-right {
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+

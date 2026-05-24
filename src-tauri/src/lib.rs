@@ -1,8 +1,10 @@
 mod app_paths;
 mod cli_targets;
+mod collections;
 mod custom_directories;
 mod db;
 mod desktop;
+mod http;
 pub mod domain;
 pub mod fs_links;
 #[cfg(test)]
@@ -85,6 +87,11 @@ pub fn run() {
                 let _ = desktop::apply_startup_window_state(&app_handle, silent_start);
             });
 
+            // Download collection index in a separate background thread
+            std::thread::spawn(|| {
+                crate::collections::download_collection_index();
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -158,7 +165,14 @@ pub fn run() {
             updater::get_app_version,
             updater::check_app_update,
             updater::download_app_update,
-            updater::install_update_and_restart
+            updater::install_update_and_restart,
+            collections::list_remote_collections,
+            collections::refresh_collection_index_record,
+            collections::get_collection_detail_record,
+            collections::install_collection_record,
+            collections::list_installed_collection_records,
+            collections::update_collection_record,
+            collections::delete_collection_record
         ])
         .run(tauri::generate_context!())
         .expect("error while running Skills Manager");

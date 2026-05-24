@@ -969,17 +969,31 @@ fn frontmatter_block(content: &str) -> Option<&str> {
 }
 
 fn frontmatter_value(block: &str, key: &str) -> Option<String> {
-    for line in block.lines() {
+    let mut lines = block.lines();
+    while let Some(line) = lines.next() {
         let trimmed = line.trim();
-        let (candidate, value) = trimmed.split_once(':')?;
+        let Some((candidate, value)) = trimmed.split_once(':') else {
+            continue;
+        };
         if candidate.trim() != key {
             continue;
         }
         let value = value.trim().trim_matches('"').trim_matches('\'');
-        if value.is_empty() {
-            return None;
+        if !value.is_empty() {
+            return Some(value.to_string());
         }
-        return Some(value.to_string());
+        // Multi-line YAML: collect subsequent indented lines
+        let mut parts = Vec::new();
+        for continuation in lines.by_ref() {
+            if continuation.is_empty() || !continuation.starts_with(' ') && !continuation.starts_with('\t') {
+                break;
+            }
+            parts.push(continuation.trim());
+        }
+        if !parts.is_empty() {
+            return Some(parts.join(" "));
+        }
+        return None;
     }
     None
 }
@@ -1095,12 +1109,9 @@ fn load_skill_entrypoint_reference(
 }
 
 fn fetch_text_url(url: &str, accept: &str) -> Result<String, RepositorySourceError> {
-    ureq::get(url)
-        .set("User-Agent", "SkillsManager/0.1")
-        .set("Accept", accept)
-        .call()
-        .map_err(|error| RepositorySourceError::RawSkillDownloadFailed(error.to_string()))?
-        .into_string()
+    let mut headers = std::collections::HashMap::new();
+    headers.insert("Accept", accept);
+    crate::http::fetch_text(url, &headers)
         .map_err(|error| RepositorySourceError::RawSkillDownloadFailed(error.to_string()))
 }
 
@@ -1437,6 +1448,27 @@ mod tests {
         assert_eq!(result.skill_name, "find-skills");
         assert_eq!(result.skill_path, "skills/find-skills/SKILL.md");
         assert_eq!(result.description, "Find and install agent skills.");
+    }
+
+    #[test]
+    fn discovers_root_skill_with_multiline_description() {
+        let workspace = TestWorkspace::new("root-multiline");
+        fs::write(
+            workspace.root.join("SKILL.md"),
+            "---\nname: web-access\ndescription:\n  First line of description.\n  Second line.\n---\n",
+        )
+        .expect("root SKILL.md should be written");
+
+        let skills = super::discover_repository_skills(&workspace.root, None)
+            .expect("root skill should be discovered");
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].name, "web-access");
+        assert_eq!(skills[0].description, "First line of description. Second line.");
+        assert_eq!(skills[0].skill_path, "SKILL.md");
+
+        let selected = super::select_repository_skill(&skills, "web-access")
+            .expect("root skill should be selectable");
+        assert_eq!(selected.name, "web-access");
     }
 
     struct TestWorkspace {

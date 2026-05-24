@@ -10,6 +10,8 @@ pub(crate) const PROJECT_ONLY_SCHEMA: &str =
     include_str!("../migrations/0002_project_only_refactor.sql");
 pub(crate) const SKILL_SOURCE_TRACKING_SCHEMA: &str =
     include_str!("../migrations/0003_skill_source_tracking.sql");
+pub(crate) const COLLECTIONS_SCHEMA: &str =
+    include_str!("../migrations/0004_collections.sql");
 pub(crate) const CURRENT_SCHEMA: &str = r#"
 PRAGMA foreign_keys = ON;
 
@@ -139,6 +141,28 @@ CREATE INDEX IF NOT EXISTS idx_project_skills_hidden ON project_skills(project_i
 CREATE INDEX IF NOT EXISTS idx_project_groups_project_id ON project_groups(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_groups_group_id ON project_groups(group_id);
 CREATE INDEX IF NOT EXISTS idx_project_cli_targets_project_id ON project_cli_targets(project_id);
+
+CREATE TABLE IF NOT EXISTS collections (
+  id TEXT PRIMARY KEY NOT NULL,
+  file TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  version TEXT NOT NULL,
+  total_skills INTEGER NOT NULL DEFAULT 0,
+  installed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (file)
+);
+
+CREATE TABLE IF NOT EXISTS collection_skills (
+  collection_id TEXT NOT NULL,
+  skill_id TEXT NOT NULL,
+  source_origin TEXT NOT NULL DEFAULT 'collection',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (collection_id, skill_id),
+  FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+  FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+);
 "#;
 
 #[derive(Debug, Error)]
@@ -180,6 +204,16 @@ fn backfill_source_origin(connection: &Connection) -> Result<(), DbError> {
     Ok(())
 }
 
+fn migrate_collections(connection: &Connection) -> Result<(), DbError> {
+    if !has_table(connection, "collections")? {
+        connection.execute_batch(COLLECTIONS_SCHEMA)?;
+    } else if !column_exists(connection, "collections", "file")? {
+        connection.execute_batch("DROP TABLE IF EXISTS collection_skills; DROP TABLE IF EXISTS collections;")?;
+        connection.execute_batch(COLLECTIONS_SCHEMA)?;
+    }
+    Ok(())
+}
+
 fn run_migrations(connection: &Connection, initialize_current_schema: bool) -> Result<(), DbError> {
     if initialize_current_schema {
         connection.execute_batch(CURRENT_SCHEMA)?;
@@ -202,6 +236,7 @@ fn run_migrations(connection: &Connection, initialize_current_schema: bool) -> R
             connection.execute_batch(SKILL_SOURCE_TRACKING_SCHEMA)?;
             backfill_source_origin(connection)?;
         }
+        migrate_collections(connection)?;
         return Ok(());
     }
 
@@ -215,6 +250,7 @@ fn run_migrations(connection: &Connection, initialize_current_schema: bool) -> R
             connection.execute_batch(SKILL_SOURCE_TRACKING_SCHEMA)?;
         }
         connection.execute_batch(CURRENT_SCHEMA)?;
+        migrate_collections(connection)?;
         return Ok(());
     }
 

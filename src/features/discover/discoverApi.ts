@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { CollectionIndexEntry } from "../collections/collectionsApi";
 
-export type DiscoverEntry = "search" | "trending" | "hot" | "all";
+export type DiscoverEntry = "search" | "trending" | "hot" | "all" | "collections";
 
 export type DiscoverSkill = {
   id: string;
@@ -12,6 +13,7 @@ export type DiscoverSkill = {
   installs: number;
   updatedAt: string | null;
   isOfficial?: boolean;
+  version?: string;
 };
 
 export type DiscoverListState = {
@@ -31,7 +33,7 @@ export type DiscoverPageResult = {
   items: DiscoverSkill[];
 };
 
-export const discoverEntries: DiscoverEntry[] = ["all", "trending", "hot"];
+export const discoverEntries: DiscoverEntry[] = ["all", "trending", "hot", "collections"];
 
 const defaultFixturePageSize = 25;
 const remoteDiscoverCache = new Map<string, Promise<DiscoverPageResult>>();
@@ -148,6 +150,10 @@ const hotIds = [
 export async function listDiscoverSkills(
   state: DiscoverListState
 ): Promise<DiscoverPageResult> {
+  if (state.entry === "collections") {
+    return listCollectionsAsDiscoverPage(state);
+  }
+
   if (isTauriRuntime()) {
     return listRemoteDiscoverSkills(state);
   }
@@ -204,6 +210,42 @@ export function discoverStateFromSearchParams(params: URLSearchParams): Discover
   };
 }
 
+async function listCollectionsAsDiscoverPage(
+  state: DiscoverListState
+): Promise<DiscoverPageResult> {
+  const pageSize = clampPageSize(state.pageSize);
+  const collections = await invoke<CollectionIndexEntry[]>("list_remote_collections").catch(
+    () => []
+  );
+
+  const items: DiscoverSkill[] = collections.map((entry) => ({
+    id: entry.file,
+    name: entry.title,
+    description: entry.description,
+    sourceRef: entry.file,
+    skillPath: String(entry.totalSkills),
+    tags: [],
+    installs: entry.totalSkills,
+    updatedAt: null,
+    version: entry.version
+  }));
+
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const page = clampPage(state.page, totalPages);
+  const start = (page - 1) * pageSize;
+
+  return {
+    entry: "collections",
+    query: "",
+    page,
+    pageSize,
+    totalItems,
+    totalPages,
+    items: items.slice(start, start + pageSize)
+  };
+}
+
 function itemsForEntry(entry: DiscoverEntry) {
   if (entry === "trending") {
     return byIds(trendingIds);
@@ -238,7 +280,7 @@ function listRemoteDiscoverSkills(state: DiscoverListState) {
 }
 
 function shouldCacheRemoteDiscoverState(state: DiscoverListState) {
-  return state.entry === "all" || state.entry === "trending" || state.entry === "hot";
+  return state.entry === "all" || state.entry === "trending" || state.entry === "hot" || state.entry === "collections";
 }
 
 function remoteDiscoverCacheKey(state: DiscoverListState) {
@@ -281,7 +323,9 @@ function clampPageSize(pageSize: number | undefined) {
 }
 
 function coerceEntry(value: string | null): DiscoverEntry {
-  return value === "trending" || value === "hot" || value === "all" ? value : "all";
+  return value === "trending" || value === "hot" || value === "all" || value === "collections"
+    ? value
+    : "all";
 }
 
 function isTauriRuntime() {
