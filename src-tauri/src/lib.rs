@@ -1,7 +1,6 @@
 mod app_paths;
 mod cli_targets;
 mod collections;
-mod custom_directories;
 mod db;
 mod desktop;
 mod http;
@@ -12,7 +11,6 @@ mod junction_test;
 mod file_import;
 mod install;
 mod locales;
-mod migration;
 mod project_cli_targets;
 mod project_groups;
 mod project_skills;
@@ -96,8 +94,17 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                let close_to_tray = crate::app_paths::database_path()
+                    .ok()
+                    .and_then(|path| crate::db::open_database(path).ok())
+                    .and_then(|conn| crate::settings::read_settings(&conn).ok())
+                    .map(|settings| settings.close_to_tray)
+                    .unwrap_or(true);
+
+                if close_to_tray {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
         })
         .plugin(tauri_plugin_autostart::Builder::new().build())
@@ -107,15 +114,10 @@ pub fn run() {
             cli_targets::create_cli_target_record,
             cli_targets::update_cli_target_record,
             cli_targets::delete_cli_target_record,
-            custom_directories::list_custom_directory_records,
-            custom_directories::create_custom_directory_record,
-            custom_directories::update_custom_directory_record,
-            custom_directories::delete_custom_directory_record,
             file_import::check_file_import_record,
             file_import::install_from_file_record,
             locales::read_locale_file,
             install::install_local_fixture_skill,
-            migration::migrate_project_only_database_record,
             project_cli_targets::list_available_cli_target_records,
             project_cli_targets::list_project_cli_target_records,
             project_cli_targets::add_project_cli_target_record,
@@ -147,11 +149,14 @@ pub fn run() {
             settings::update_discover_page_size_record,
             settings::update_launch_at_startup_record,
             settings::update_silent_start_record,
+            settings::update_close_to_tray_record,
             skill_groups::list_skill_group_records,
             skill_groups::create_skill_group_record,
             skill_groups::delete_skill_group_record,
             skill_groups::add_skill_to_group_record,
             skill_groups::remove_skill_from_group_record,
+            skill_groups::install_collection_group_record,
+            skill_groups::update_collection_group_record,
             skill_files::get_skill_detail,
             skill_files::read_skill_file,
             skill_files::write_skill_file,
@@ -168,11 +173,7 @@ pub fn run() {
             updater::install_update_and_restart,
             collections::list_remote_collections,
             collections::refresh_collection_index_record,
-            collections::get_collection_detail_record,
-            collections::install_collection_record,
-            collections::list_installed_collection_records,
-            collections::update_collection_record,
-            collections::delete_collection_record
+            collections::get_collection_detail_record
         ])
         .run(tauri::generate_context!())
         .expect("error while running Skills Manager");

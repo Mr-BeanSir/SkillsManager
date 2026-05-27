@@ -18,6 +18,17 @@ export function filterBySourceRef(
   return skills.filter((skill) => skill.sourceRef === sourceRef);
 }
 
+export function filterByGroupId(
+  skills: InstalledSkill[],
+  groupSkillIds: Set<string> | null
+): InstalledSkill[] {
+  if (!groupSkillIds) {
+    return skills;
+  }
+
+  return skills.filter((skill) => groupSkillIds.has(skill.id));
+}
+
 export function extractUniqueSourceRefs(skills: InstalledSkill[]): string[] {
   const refs = new Set(skills.map((skill) => skill.sourceRef));
   return [...refs].sort((a, b) => a.localeCompare(b));

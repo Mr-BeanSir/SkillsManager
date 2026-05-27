@@ -294,6 +294,45 @@
   text-wrap: pretty;
 }
 
+.segmentedControl {
+  display: flex;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.segmentedButton {
+  padding: 8px 16px;
+  border: none;
+  background: #ffffff;
+  color: #5f5a52;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.segmentedButton:hover {
+  background: #f5f4f0;
+}
+
+.segmentedActive {
+  padding: 8px 16px;
+  border: none;
+  background: #111111;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmentedButton:disabled,
+.segmentedActive:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .versionRow {
   display: flex;
   align-items: center;

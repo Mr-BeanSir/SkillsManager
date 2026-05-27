@@ -8,6 +8,7 @@ import {
   updateAutoReconcileSetting,
   updateLaunchAtStartupSetting,
   updateSilentStartSetting,
+  updateCloseToTraySetting,
   getAppVersion,
   checkAppUpdate,
   downloadAppUpdate,
@@ -40,7 +41,8 @@ const navGroups: NavGroup[] = [
       { id: "language", labelKey: "settings.nav.language" },
       { id: "discoverPageSize", labelKey: "settings.nav.discoverPageSize" },
       { id: "launchAtStartup", labelKey: "settings.nav.launchAtStartup" },
-      { id: "silentStart", labelKey: "settings.nav.silentStart" }
+      { id: "silentStart", labelKey: "settings.nav.silentStart" },
+      { id: "closeToTray", labelKey: "settings.nav.closeToTray" }
     ]
   },
   {
@@ -68,6 +70,7 @@ export function SettingsPage({
 }: SettingsPageProps) {
   const [settings, setSettings] = useState<SettingsRecord>({
     autoReconcile: true,
+    closeToTray: true,
     discoverPageSize: 25,
     launchAtStartup: false,
     silentStart: false
@@ -513,6 +516,49 @@ export function SettingsPage({
                   <span className={styles.switchThumb} />
                 </span>
               </label>
+            </div>
+          </section>
+
+          <section className={`panel ${styles.panel} ${styles.section}`} id="closeToTray" aria-labelledby="close-to-tray-title">
+            <div className={styles.reconcileHeader}>
+              <div className={styles.sectionIntro}>
+                <h2 className={styles.sectionTitle} id="close-to-tray-title">
+                  {t(catalog, language, "settings.closeToTray.title")}
+                </h2>
+                <p className={styles.sectionDescription}>
+                  {t(catalog, language, "settings.closeToTray.description")}
+                </p>
+              </div>
+              {isSettingsLoading ? null : (
+                <div className={styles.segmentedControl}>
+                  <button
+                    className={!settings.closeToTray ? styles.segmentedActive : styles.segmentedButton}
+                    disabled={isSettingsSaving}
+                    onClick={() =>
+                      void handleBooleanSettingChange(
+                        () => updateCloseToTraySetting(false),
+                        "settings.closeToTray.updatedClose"
+                      )
+                    }
+                    type="button"
+                  >
+                    {t(catalog, language, "settings.closeToTray.close")}
+                  </button>
+                  <button
+                    className={settings.closeToTray ? styles.segmentedActive : styles.segmentedButton}
+                    disabled={isSettingsSaving}
+                    onClick={() =>
+                      void handleBooleanSettingChange(
+                        () => updateCloseToTraySetting(true),
+                        "settings.closeToTray.updatedTray"
+                      )
+                    }
+                    type="button"
+                  >
+                    {t(catalog, language, "settings.closeToTray.tray")}
+                  </button>
+                </div>
+              )}
             </div>
           </section>
 

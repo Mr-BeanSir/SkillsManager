@@ -22,7 +22,8 @@ import {
   type SkillUpdateRepositoryErrorRecord,
   type SkillUpdateStatusRecord
 } from "../skillsApi";
-import { buildSkillsPage, buildSkillsSummary, extractUniqueSourceRefs, filterBySourceRef, filterInstalledSkills } from "../skillsPageModel";
+import { buildSkillsPage, buildSkillsSummary, extractUniqueSourceRefs, filterByGroupId, filterBySourceRef, filterInstalledSkills } from "../skillsPageModel";
+import { listSkillGroups, type SkillGroup } from "../../groups/groupsApi";
 import {
   buildInitialUpdateRuntimeState,
   buildUpdateRuntimeView,
@@ -42,6 +43,7 @@ type SkillsPageProps = {
 
 export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) {
   const [skills, setSkills] = useState<InstalledSkill[]>([]);
+  const [groups, setGroups] = useState<SkillGroup[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,8 +52,9 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [viewMode, setViewMode] = useState<"default" | "source">("default");
+  const [viewMode, setViewMode] = useState<"default" | "source" | "group">("default");
   const [selectedSourceRef, setSelectedSourceRef] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [pendingDeleteSkillId, setPendingDeleteSkillId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const pendingDeleteSkill = skills.find((skill) => skill.id === pendingDeleteSkillId) ?? null;
@@ -93,13 +96,24 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
         }
       });
 
+    listSkillGroups()
+      .then((groupItems) => {
+        if (!ignore) {
+          setGroups(groupItems);
+        }
+      })
+      .catch(() => {});
+
     return () => {
       ignore = true;
     };
   }, []);
 
   const sourceFiltered = filterBySourceRef(skills, viewMode === "source" ? selectedSourceRef : null);
-  const filteredSkills = filterInstalledSkills(sourceFiltered, query);
+  const selectedGroup = viewMode === "group" ? groups.find((g) => g.id === selectedGroupId) ?? null : null;
+  const groupSkillIds = selectedGroup ? new Set(selectedGroup.skills.map((s) => s.id)) : null;
+  const groupFiltered = filterByGroupId(sourceFiltered, groupSkillIds);
+  const filteredSkills = filterInstalledSkills(groupFiltered, query);
   const uniqueSourceRefs = useMemo(() => extractUniqueSourceRefs(skills), [skills]);
   const page = useMemo(
     () => buildSkillsPage(filteredSkills, currentPage, pageSize),
@@ -281,10 +295,18 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
               <button
                 aria-pressed={viewMode === "source"}
                 className={viewMode === "source" ? "tab-button tab-button-active" : "tab-button"}
-                onClick={() => { setViewMode("source"); setCurrentPage(1); }}
+                onClick={() => { setViewMode("source"); setSelectedGroupId(null); setCurrentPage(1); }}
                 type="button"
               >
                 {t(catalog, language, "skills.viewMode.source")}
+              </button>
+              <button
+                aria-pressed={viewMode === "group"}
+                className={viewMode === "group" ? "tab-button tab-button-active" : "tab-button"}
+                onClick={() => { setViewMode("group"); setSelectedSourceRef(null); setSelectedGroupId(groups[0]?.id ?? null); setCurrentPage(1); }}
+                type="button"
+              >
+                {t(catalog, language, "skills.viewMode.group")}
               </button>
             </div>
             {viewMode === "source" ? (
@@ -302,6 +324,22 @@ export function SkillsPage({ catalog, language, onOpenSkill }: SkillsPageProps) 
                 {uniqueSourceRefs.map((ref) => (
                   <option key={ref} value={ref}>
                     {ref}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            {viewMode === "group" ? (
+              <select
+                style={{ minWidth: "200px", border: "1px solid #eaeaea", borderRadius: "8px", background: "#ffffff", color: "#2f3437", padding: "8px 10px", fontSize: "13px" }}
+                value={selectedGroupId ?? ""}
+                onChange={(event) => {
+                  setSelectedGroupId(event.target.value || null);
+                  setCurrentPage(1);
+                }}
+              >
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
                   </option>
                 ))}
               </select>

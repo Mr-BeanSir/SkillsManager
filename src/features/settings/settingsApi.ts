@@ -7,6 +7,7 @@ import {
 
 export type SettingsRecord = {
   autoReconcile: boolean;
+  closeToTray: boolean;
   discoverPageSize: number;
   launchAtStartup: boolean;
   silentStart: boolean;
@@ -28,6 +29,7 @@ export type DownloadProgress = {
 
 const defaultSettings: SettingsRecord = {
   autoReconcile: true,
+  closeToTray: true,
   discoverPageSize: 25,
   launchAtStartup: false,
   silentStart: false
@@ -80,6 +82,14 @@ export function updateSilentStartSetting(enabled: boolean) {
   }
 
   return invoke<SettingsRecord>("update_silent_start_record", { enabled });
+}
+
+export function updateCloseToTraySetting(enabled: boolean) {
+  if (!isTauriRuntime()) {
+    return Promise.reject(new Error("Open the Tauri app to update settings."));
+  }
+
+  return invoke<SettingsRecord>("update_close_to_tray_record", { enabled });
 }
 
 function isTauriRuntime() {

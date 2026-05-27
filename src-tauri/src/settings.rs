@@ -6,6 +6,7 @@ use thiserror::Error;
 #[serde(rename_all = "camelCase")]
 pub struct SettingsRecord {
     pub auto_reconcile: bool,
+    pub close_to_tray: bool,
     pub discover_page_size: u32,
     pub launch_at_startup: bool,
     pub silent_start: bool,
@@ -21,6 +22,7 @@ pub enum SettingsError {
 
 pub fn read_settings(connection: &Connection) -> Result<SettingsRecord, SettingsError> {
     let auto_reconcile = read_boolean_setting(connection, "auto_reconcile", true)?;
+    let close_to_tray = read_boolean_setting(connection, "close_to_tray", true)?;
     let discover_page_size = connection
         .query_row(
             "SELECT value FROM settings WHERE key = 'discover_page_size'",
@@ -41,6 +43,7 @@ pub fn read_settings(connection: &Connection) -> Result<SettingsRecord, Settings
 
     Ok(SettingsRecord {
         auto_reconcile,
+        close_to_tray,
         discover_page_size,
         launch_at_startup,
         silent_start,
@@ -99,6 +102,14 @@ pub fn update_silent_start(
     read_settings(connection)
 }
 
+pub fn update_close_to_tray(
+    connection: &Connection,
+    enabled: bool,
+) -> Result<SettingsRecord, SettingsError> {
+    write_boolean_setting(connection, "close_to_tray", enabled)?;
+    read_settings(connection)
+}
+
 #[tauri::command]
 pub fn get_settings_record() -> Result<SettingsRecord, String> {
     with_database(read_settings)
@@ -122,6 +133,11 @@ pub fn update_launch_at_startup_record(enabled: bool) -> Result<SettingsRecord, 
 #[tauri::command]
 pub fn update_silent_start_record(enabled: bool) -> Result<SettingsRecord, String> {
     with_database(|connection| update_silent_start(connection, enabled))
+}
+
+#[tauri::command]
+pub fn update_close_to_tray_record(enabled: bool) -> Result<SettingsRecord, String> {
+    with_database(|connection| update_close_to_tray(connection, enabled))
 }
 
 fn with_database<T>(
@@ -166,16 +182,13 @@ fn write_boolean_setting(
 
 #[cfg(test)]
 mod tests {
-    use crate::db::INITIAL_SCHEMA;
+    use crate::db::CURRENT_SCHEMA;
     use rusqlite::Connection;
 
     use super::{
-        read_settings, update_auto_reconcile, update_discover_page_size,
+        read_settings, update_auto_reconcile, update_close_to_tray, update_discover_page_size,
         update_launch_at_startup, update_silent_start, SettingsRecord,
     };
-
-    const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
-        include_str!("../migrations/0002_project_only_refactor.sql");
 
     #[test]
     fn reads_default_auto_reconcile_setting() {
@@ -187,6 +200,7 @@ mod tests {
             settings,
             SettingsRecord {
                 auto_reconcile: true,
+                close_to_tray: true,
                 discover_page_size: 25,
                 launch_at_startup: false,
                 silent_start: false,
@@ -210,6 +224,7 @@ mod tests {
             "stored setting should remain disabled"
         );
         assert_eq!(reread.discover_page_size, 25);
+        assert!(reread.close_to_tray);
         assert!(!reread.launch_at_startup);
         assert!(!reread.silent_start);
     }
@@ -225,6 +240,7 @@ mod tests {
             updated.auto_reconcile,
             "other settings should remain intact"
         );
+        assert!(updated.close_to_tray);
         assert!(!updated.launch_at_startup);
         assert!(!updated.silent_start);
 
@@ -306,17 +322,25 @@ mod tests {
         assert!(updated.silent_start);
     }
 
+    #[test]
+    fn updates_close_to_tray_setting() {
+        let connection = open_project_only_in_memory_database();
+
+        let updated = update_close_to_tray(&connection, false).expect("setting should update");
+        assert!(!updated.close_to_tray);
+
+        let reread = read_settings(&connection).expect("settings should reread");
+        assert!(!reread.close_to_tray);
+    }
+
     fn open_project_only_in_memory_database() -> Connection {
         let connection = Connection::open_in_memory().expect("database should open");
         connection
             .pragma_update(None, "foreign_keys", "ON")
             .expect("foreign keys should enable");
         connection
-            .execute_batch(INITIAL_SCHEMA)
-            .expect("initial schema should apply");
-        connection
-            .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
-            .expect("project-only schema should apply");
+            .execute_batch(CURRENT_SCHEMA)
+            .expect("current schema should apply");
         connection
     }
 }
