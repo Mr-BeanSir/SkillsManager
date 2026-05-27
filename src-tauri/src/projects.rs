@@ -255,10 +255,7 @@ mod tests {
     use rusqlite::Connection;
     use std::path::PathBuf;
 
-    use crate::db::INITIAL_SCHEMA;
-
-    const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
-        include_str!("../migrations/0002_project_only_refactor.sql");
+    use crate::db::CURRENT_SCHEMA;
 
     #[test]
     fn creates_lists_gets_updates_and_deletes_projects() {
@@ -424,11 +421,8 @@ mod tests {
             .pragma_update(None, "foreign_keys", "ON")
             .expect("foreign keys should enable");
         connection
-            .execute_batch(INITIAL_SCHEMA)
-            .expect("initial schema should apply");
-        connection
-            .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
-            .expect("project-only schema should apply");
+            .execute_batch(CURRENT_SCHEMA)
+            .expect("current schema should apply");
         connection
     }
 }

@@ -1,6 +1,5 @@
 import {
   Archive,
-  Books,
   Compass,
   FolderSimpleDashed,
   GearSix,
@@ -8,7 +7,7 @@ import {
   Stack
 } from "@phosphor-icons/react";
 
-export type PageId = "skills" | "discover" | "projects" | "groups" | "collections" | "settings";
+export type PageId = "skills" | "discover" | "projects" | "groups" | "settings";
 
 export type NavItem = {
   id: PageId;
@@ -41,12 +40,6 @@ export const appNavItems: NavItem[] = [
     labelKey: "nav.groups.label",
     descriptionKey: "nav.groups.description",
     icon: Stack
-  },
-  {
-    id: "collections",
-    labelKey: "nav.collections.label",
-    descriptionKey: "nav.collections.description",
-    icon: Books
   },
   {
     id: "settings",

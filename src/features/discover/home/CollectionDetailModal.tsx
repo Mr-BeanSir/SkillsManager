@@ -6,11 +6,13 @@ import { Modal } from "../../../shared/components/Modal";
 import { Tooltip } from "../../../shared/components/Tooltip";
 import {
   getCollectionDetail,
-  installCollection,
   type CollectionIndexEntry,
-  type CollectionDetail,
-  type CollectionInstallProgress
+  type CollectionDetail
 } from "../../collections/collectionsApi";
+import {
+  installCollectionGroup,
+  type CollectionInstallProgress
+} from "../../groups/groupsApi";
 import {
   listInstalledSkills,
   type InstalledSkill
@@ -88,10 +90,10 @@ export function CollectionDetailModal({
     setProgress(null);
 
     try {
-      const installed = await installCollection(entry.file, (p) => setProgress(p));
+      const installed = await installCollectionGroup(entry.file, (p) => setProgress(p));
       message.success(
         t(catalog, language, "collections.detail.installSuccess", {
-          name: installed.title,
+          name: installed.name,
           count: String(installed.skills.length)
         })
       );

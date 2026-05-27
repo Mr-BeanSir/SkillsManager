@@ -22,7 +22,6 @@ import { RemoteSkillDetailPage } from "../features/discover/detail/RemoteSkillDe
 import type { DiscoverSkill } from "../features/discover/discoverApi";
 import { ConnectedGroupDetailPage } from "../features/groups/detail/GroupDetailPage";
 import { GroupsPage } from "../features/groups/home/GroupsPage";
-import { CollectionsPage } from "../features/collections/home/CollectionsPage";
 import { ProjectDetailPage } from "../features/projects/detail/ProjectDetailPage";
 import { ProjectsPage } from "../features/projects/home/ProjectsPage";
 import { CliTargetsPage } from "../features/settings/detail/CliTargetsPage";
@@ -174,11 +173,6 @@ export function App() {
             language={language}
             onBack={() => requestPageChange("groups")}
             onOpenProject={(projectId) => requestPageChange(projectDetailRoute(projectId))}
-          />
-        ) : currentPage === "collections" ? (
-          <CollectionsPage
-            catalog={catalog}
-            language={language}
           />
         ) : currentPage === "projects" ? (
           <ProjectsPage

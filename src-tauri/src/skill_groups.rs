@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -5,11 +7,25 @@ use thiserror::Error;
 use crate::domain::ids::stable_prefixed_id;
 use crate::reconcile::{reconcile_project_record_if_enabled, ReconcileEnvironment};
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionInstallProgress {
+    pub stage: String,
+    pub message: String,
+    pub current: Option<usize>,
+    pub total: Option<usize>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillGroup {
     pub id: String,
     pub name: String,
+    pub group_type: String,
+    pub file: Option<String>,
+    pub description: String,
+    pub version: Option<String>,
+    pub total_skills: i64,
     pub skills: Vec<GroupSkill>,
     pub active_project_count: i64,
     pub attached_project_count: i64,
@@ -41,6 +57,8 @@ pub struct ProjectGroupUsage {
 #[serde(rename_all = "camelCase")]
 pub struct SkillGroupInput {
     pub name: String,
+    #[serde(default)]
+    pub description: String,
 }
 
 #[derive(Debug, Error)]
@@ -51,13 +69,15 @@ pub enum SkillGroupError {
     Sqlite(#[from] rusqlite::Error),
     #[error("{0}")]
     Reconcile(#[from] crate::reconcile::ReconcileError),
+    #[error("repository source error: {0}")]
+    RepositorySource(String),
 }
 
 pub fn list_skill_groups(connection: &Connection) -> Result<Vec<SkillGroup>, SkillGroupError> {
     let mut statement = connection.prepare(
-        "SELECT id, name, created_at, updated_at
+        "SELECT id, name, type, file, description, version, total_skills, created_at, updated_at
         FROM skill_groups
-        ORDER BY name ASC",
+        ORDER BY type ASC, name ASC",
     )?;
 
     let group_headers = statement
@@ -66,15 +86,20 @@ pub fn list_skill_groups(connection: &Connection) -> Result<Vec<SkillGroup>, Ski
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, String>(8)?,
             ))
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
     group_headers
         .into_iter()
-        .map(|(id, name, created_at, updated_at)| {
-            hydrate_group(connection, id, name, created_at, updated_at)
+        .map(|(id, name, group_type, file, description, version, total_skills, created_at, updated_at)| {
+            hydrate_group(connection, id, name, group_type, file, description, version, total_skills, created_at, updated_at)
         })
         .collect()
 }
@@ -87,9 +112,9 @@ pub fn create_skill_group(
     let id = stable_id("skill-group", &input.name);
 
     connection.execute(
-        "INSERT INTO skill_groups (id, name)
-        VALUES (?1, ?2)",
-        (&id, &input.name),
+        "INSERT INTO skill_groups (id, name, description)
+        VALUES (?1, ?2, ?3)",
+        (&id, &input.name, &input.description),
     )?;
 
     get_skill_group(connection, &id)
@@ -98,6 +123,22 @@ pub fn create_skill_group(
 pub fn delete_skill_group(connection: &Connection, id: &str) -> Result<(), SkillGroupError> {
     connection.execute("DELETE FROM skill_groups WHERE id = ?1", [id])?;
     Ok(())
+}
+
+pub fn update_skill_group(
+    connection: &Connection,
+    id: &str,
+    input: SkillGroupInput,
+) -> Result<SkillGroup, SkillGroupError> {
+    let input = normalize_group_input(input)?;
+
+    connection.execute(
+        "UPDATE skill_groups SET name = ?1, description = ?2, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?3",
+        (&input.name, &input.description, id),
+    )?;
+
+    get_skill_group(connection, id)
 }
 
 pub fn add_skill_to_group(
@@ -143,6 +184,11 @@ pub fn create_skill_group_record(input: SkillGroupInput) -> Result<SkillGroup, S
 #[tauri::command]
 pub fn delete_skill_group_record(id: String) -> Result<(), String> {
     with_database(|connection| delete_skill_group(connection, &id))
+}
+
+#[tauri::command]
+pub fn update_skill_group_record(id: String, input: SkillGroupInput) -> Result<SkillGroup, String> {
+    with_database(|connection| update_skill_group(connection, &id, input))
 }
 
 #[tauri::command]
@@ -313,7 +359,7 @@ fn list_project_ids_for_group(
 
 fn get_skill_group(connection: &Connection, id: &str) -> Result<SkillGroup, SkillGroupError> {
     let header = connection.query_row(
-        "SELECT id, name, created_at, updated_at
+        "SELECT id, name, type, file, description, version, total_skills, created_at, updated_at
         FROM skill_groups
         WHERE id = ?1",
         [id],
@@ -322,18 +368,28 @@ fn get_skill_group(connection: &Connection, id: &str) -> Result<SkillGroup, Skil
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, String>(8)?,
             ))
         },
     )?;
 
-    hydrate_group(connection, header.0, header.1, header.2, header.3)
+    hydrate_group(connection, header.0, header.1, header.2, header.3, header.4, header.5, header.6, header.7, header.8)
 }
 
 fn hydrate_group(
     connection: &Connection,
     id: String,
     name: String,
+    group_type: String,
+    file: Option<String>,
+    description: String,
+    version: Option<String>,
+    total_skills: i64,
     created_at: String,
     updated_at: String,
 ) -> Result<SkillGroup, SkillGroupError> {
@@ -348,6 +404,11 @@ fn hydrate_group(
         attached_project_count,
         id,
         name,
+        group_type,
+        file,
+        description,
+        version,
+        total_skills,
         created_at,
         updated_at,
     })
@@ -419,7 +480,10 @@ fn normalize_group_input(input: SkillGroupInput) -> Result<SkillGroupInput, Skil
         return Err(SkillGroupError::GroupNameRequired);
     }
 
-    Ok(SkillGroupInput { name })
+    Ok(SkillGroupInput {
+        name,
+        description: input.description,
+    })
 }
 
 fn stable_id(prefix: &str, value: &str) -> String {
@@ -430,18 +494,317 @@ fn project_skill_id(project_id: &str, skill_id: &str) -> String {
     stable_prefixed_id("project-skill", &format!("{project_id}|{skill_id}"))
 }
 
+// ---------------------------------------------------------------------------
+// Collection group operations
+// ---------------------------------------------------------------------------
+
+fn collection_group_id(file: &str) -> String {
+    crate::domain::ids::short_stable_hash(file)
+}
+
+pub fn install_collection_group(
+    connection: &Connection,
+    managed_skills_root: PathBuf,
+    detail: &crate::collections::CollectionDetail,
+    file: &str,
+    progress: &Option<tauri::ipc::Channel<CollectionInstallProgress>>,
+) -> Result<SkillGroup, SkillGroupError> {
+    let group_id = collection_group_id(file);
+
+    // Remove stale collection groups that hold the same file (handles id drift)
+    connection.execute(
+        "DELETE FROM skill_groups WHERE file = ?1 AND id != ?2",
+        rusqlite::params![file, group_id],
+    )?;
+
+    // Also handle name conflict for existing manual groups with same name
+    connection.execute(
+        "DELETE FROM skill_groups WHERE name = ?1 AND id != ?2 AND type = 'manual'",
+        rusqlite::params![detail.title, group_id],
+    )?;
+
+    // Upsert group row
+    connection.execute(
+        "INSERT INTO skill_groups (id, name, type, file, description, version, total_skills)
+         VALUES (?1, ?2, 'collection', ?3, ?4, ?5, ?6)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
+           description = excluded.description,
+           version = excluded.version,
+           total_skills = excluded.total_skills,
+           updated_at = CURRENT_TIMESTAMP",
+        rusqlite::params![
+            group_id,
+            detail.title,
+            file,
+            detail.description,
+            detail.version,
+            detail.skills.len() as i64
+        ],
+    )?;
+
+    // Clear existing group skills for reinstall
+    connection.execute(
+        "DELETE FROM skill_group_skills WHERE group_id = ?1",
+        [&group_id],
+    )?;
+
+    let total = detail.skills.len();
+
+    for (i, skill_entry) in detail.skills.iter().enumerate() {
+        send_group_progress(
+            progress,
+            CollectionInstallProgress {
+                stage: "installing".to_string(),
+                message: format!("{}: {}", i + 1, skill_entry.name),
+                current: Some(i + 1),
+                total: Some(total),
+            },
+        );
+
+        let source = skill_entry.source_ref.clone();
+        let skill_name = skill_entry.name.clone();
+
+        // Check if skill already exists
+        let existing_skill_id: Option<String> = connection
+            .query_row(
+                "SELECT id FROM skills WHERE source_type = ?1 AND source_ref = ?2 AND name = ?3",
+                rusqlite::params![skill_entry.source_type, skill_entry.source_ref, skill_entry.name],
+                |row| row.get(0),
+            )
+            .ok();
+
+        let skill_id = if let Some(id) = existing_skill_id {
+            id
+        } else {
+            let request = crate::repository_sources::RepositorySkillInstallRequest {
+                source,
+                skill_name,
+            };
+
+            let installed = crate::repository_sources::install_repository_skill(
+                connection,
+                managed_skills_root.clone(),
+                request,
+                None,
+            )
+            .map_err(|e| SkillGroupError::RepositorySource(e.to_string()))?;
+
+            if let Some(snapshot) = installed.into_iter().next() {
+                snapshot.id
+            } else {
+                continue;
+            }
+        };
+
+        // Link skill to group
+        connection.execute(
+            "INSERT OR IGNORE INTO skill_group_skills (group_id, skill_id)
+             VALUES (?1, ?2)",
+            rusqlite::params![group_id, skill_id],
+        )?;
+    }
+
+    get_skill_group(connection, &group_id)
+}
+
+pub fn update_collection_group(
+    connection: &Connection,
+    managed_skills_root: PathBuf,
+    group_id: &str,
+    new_detail: &crate::collections::CollectionDetail,
+    progress: &Option<tauri::ipc::Channel<CollectionInstallProgress>>,
+) -> Result<SkillGroup, SkillGroupError> {
+    // Get current skill names in this group
+    let old_skills = get_group_skill_names(connection, group_id)?;
+    let new_skill_names: std::collections::HashSet<&str> =
+        new_detail.skills.iter().map(|s| s.name.as_str()).collect();
+    let old_skill_names: std::collections::HashSet<&str> =
+        old_skills.iter().map(|s| s.as_str()).collect();
+
+    // Skills to add (in new but not in old)
+    let to_add: Vec<&crate::collections::CollectionSkillEntry> = new_detail
+        .skills
+        .iter()
+        .filter(|s| !old_skill_names.contains(s.name.as_str()))
+        .collect();
+
+    // Skills to remove (in old but not in new)
+    let to_remove: Vec<String> = old_skills
+        .into_iter()
+        .filter(|s| !new_skill_names.contains(s.as_str()))
+        .collect();
+
+    let total = to_add.len();
+    for (i, skill_entry) in to_add.iter().enumerate() {
+        send_group_progress(
+            progress,
+            CollectionInstallProgress {
+                stage: "installing".to_string(),
+                message: format!("{}: {}", i + 1, skill_entry.name),
+                current: Some(i + 1),
+                total: Some(total),
+            },
+        );
+
+        let source = skill_entry.source_ref.clone();
+        let skill_name = skill_entry.name.clone();
+
+        let existing_skill_id: Option<String> = connection
+            .query_row(
+                "SELECT id FROM skills WHERE source_type = ?1 AND source_ref = ?2 AND name = ?3",
+                rusqlite::params![skill_entry.source_type, skill_entry.source_ref, skill_entry.name],
+                |row| row.get(0),
+            )
+            .ok();
+
+        let skill_id = if let Some(id) = existing_skill_id {
+            id
+        } else {
+            let request = crate::repository_sources::RepositorySkillInstallRequest {
+                source,
+                skill_name,
+            };
+            let installed = crate::repository_sources::install_repository_skill(
+                connection,
+                managed_skills_root.clone(),
+                request,
+                None,
+            )
+            .map_err(|e| SkillGroupError::RepositorySource(e.to_string()))?;
+
+            if let Some(snapshot) = installed.into_iter().next() {
+                snapshot.id
+            } else {
+                continue;
+            }
+        };
+
+        connection.execute(
+            "INSERT OR IGNORE INTO skill_group_skills (group_id, skill_id)
+             VALUES (?1, ?2)",
+            rusqlite::params![group_id, skill_id],
+        )?;
+    }
+
+    // Remove skills no longer in the collection
+    for skill_name in &to_remove {
+        if let Ok(skill_id) = connection.query_row(
+            "SELECT id FROM skills WHERE name = ?1",
+            [skill_name],
+            |row| row.get::<_, String>(0),
+        ) {
+            connection.execute(
+                "DELETE FROM skill_group_skills WHERE group_id = ?1 AND skill_id = ?2",
+                rusqlite::params![group_id, skill_id],
+            )?;
+
+            // Clean up project_skills for this group's skills
+            remove_orphaned_group_skill_from_projects(connection, group_id, &skill_id)?;
+        }
+    }
+
+    // Update group version and total_skills
+    connection.execute(
+        "UPDATE skill_groups SET version = ?1, total_skills = ?2, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?3",
+        rusqlite::params![new_detail.version, new_detail.skills.len() as i64, group_id],
+    )?;
+
+    get_skill_group(connection, group_id)
+}
+
+fn get_group_skill_names(
+    connection: &Connection,
+    group_id: &str,
+) -> Result<Vec<String>, SkillGroupError> {
+    let mut stmt = connection.prepare(
+        "SELECT s.name FROM skill_group_skills sgs
+         JOIN skills s ON s.id = sgs.skill_id
+         WHERE sgs.group_id = ?1",
+    )?;
+
+    let names = stmt
+        .query_map([group_id], |row| row.get(0))?
+        .collect::<Result<Vec<String>, _>>()?;
+
+    Ok(names)
+}
+
+fn send_group_progress(
+    channel: &Option<tauri::ipc::Channel<CollectionInstallProgress>>,
+    progress: CollectionInstallProgress,
+) {
+    if let Some(ch) = channel {
+        let _ = ch.send(progress);
+    }
+}
+
+#[tauri::command]
+pub async fn install_collection_group_record(
+    file: String,
+    on_progress: tauri::ipc::Channel<CollectionInstallProgress>,
+) -> Result<SkillGroup, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let database_path =
+            crate::app_paths::database_path().map_err(|error| error.to_string())?;
+        let connection =
+            crate::db::open_database(database_path).map_err(|error| error.to_string())?;
+        let managed_skills_root =
+            crate::app_paths::managed_skills_dir().map_err(|error| error.to_string())?;
+
+        let detail =
+            crate::collections::fetch_collection_detail(&file).map_err(|error| error.to_string())?;
+
+        let progress = Some(on_progress);
+        install_collection_group(&connection, managed_skills_root, &detail, &file, &progress)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn update_collection_group_record(
+    group_id: String,
+    on_progress: tauri::ipc::Channel<CollectionInstallProgress>,
+) -> Result<SkillGroup, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let database_path =
+            crate::app_paths::database_path().map_err(|error| error.to_string())?;
+        let connection =
+            crate::db::open_database(database_path).map_err(|error| error.to_string())?;
+        let managed_skills_root =
+            crate::app_paths::managed_skills_dir().map_err(|error| error.to_string())?;
+
+        // Get the file from the group to fetch latest detail
+        let file: String = connection
+            .query_row(
+                "SELECT file FROM skill_groups WHERE id = ?1 AND type = 'collection'",
+                [&group_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| error.to_string())?;
+
+        let detail =
+            crate::collections::fetch_collection_detail(&file).map_err(|error| error.to_string())?;
+
+        let progress = Some(on_progress);
+        update_collection_group(&connection, managed_skills_root, &group_id, &detail, &progress)
+            .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::db::{INITIAL_SCHEMA, SKILL_SOURCE_TRACKING_SCHEMA};
     use rusqlite::Connection;
 
     use super::{
         add_skill_to_group, create_skill_group, delete_skill_group, list_skill_groups,
         remove_skill_from_group, SkillGroupInput,
     };
-
-    const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
-        include_str!("../migrations/0002_project_only_refactor.sql");
 
     #[test]
     fn creates_group_without_legacy_project_targets() {
@@ -708,14 +1071,8 @@ mod tests {
             .pragma_update(None, "foreign_keys", "ON")
             .expect("foreign keys should enable");
         connection
-            .execute_batch(INITIAL_SCHEMA)
-            .expect("initial schema should apply");
-        connection
-            .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
-            .expect("project-only schema should apply");
-        connection
-            .execute_batch(SKILL_SOURCE_TRACKING_SCHEMA)
-            .expect("skill source tracking schema should apply");
+            .execute_batch(crate::db::CURRENT_SCHEMA)
+            .expect("current schema should apply");
         connection
     }
 }

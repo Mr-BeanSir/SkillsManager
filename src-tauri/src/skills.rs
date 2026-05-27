@@ -286,12 +286,9 @@ fn has_table(connection: &Connection, table_name: &str) -> Result<bool, SkillErr
 #[cfg(test)]
 mod tests {
     use super::list_installed_skills;
-    use crate::db::{open_in_memory_database, INITIAL_SCHEMA};
+    use crate::db::{open_in_memory_database, CURRENT_SCHEMA};
     use rusqlite::Connection;
     use std::fs;
-
-    const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
-        include_str!("../migrations/0002_project_only_refactor.sql");
 
     #[test]
     fn lists_installed_skills_with_project_usage_counts_and_assignments() {
@@ -406,9 +403,8 @@ mod tests {
                     source_type,
                     source_ref,
                     skill_path,
-                    managed_dir_name,
-                    link_mode
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    managed_dir_name
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 (
                     "skill-plain",
                     "plain-skill",
@@ -416,7 +412,6 @@ mod tests {
                     "owner/plain",
                     "skills/plain",
                     "plain-skill-11111111",
-                    "project",
                 ),
             )
             .expect("skill should insert");
@@ -531,11 +526,8 @@ mod tests {
             .pragma_update(None, "foreign_keys", "ON")
             .expect("foreign keys should enable");
         connection
-            .execute_batch(INITIAL_SCHEMA)
-            .expect("initial schema should apply");
-        connection
-            .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
-            .expect("project-only schema should apply");
+            .execute_batch(CURRENT_SCHEMA)
+            .expect("current schema should apply");
         connection
     }
 }

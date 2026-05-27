@@ -1,3 +1,10 @@
+.detailCopy {
+  margin: 10px 0 0;
+  color: #787774;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .detailActions {
   display: grid;
   justify-items: stretch;

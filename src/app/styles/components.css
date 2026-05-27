@@ -213,18 +213,41 @@
   z-index: 30;
   display: grid;
   place-items: center;
-  background: rgba(17, 17, 17, 0.42);
+  background: rgba(17, 17, 17, 0.36);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   overscroll-behavior: contain;
   padding: 24px;
+  animation: backdrop-fade 160ms ease-out;
 }
 
 .modal-panel {
   width: min(800px, 100%);
   max-height: min(90vh, 820px);
   overflow-y: auto;
-  border: 1px solid #eaeaea;
-  border-radius: 8px;
+  border: 1px solid #e0dfdc;
+  border-radius: 10px;
   background: #ffffff;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 16px 40px -4px rgba(0, 0, 0, 0.1);
+  animation: modal-enter 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes backdrop-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .modal-panel table {
@@ -247,15 +270,16 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  padding-bottom: 20px;
 }
 
 .modal-actions-pad {
-  padding: 20px 20px 20px;
+  padding: 20px;
 }
 
 .field {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .field span {
@@ -271,7 +295,8 @@
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   min-width: 0;
   border: 1px solid #eaeaea;
@@ -279,6 +304,26 @@
   background: #ffffff;
   color: #2f3437;
   padding: 10px 11px;
+  resize: vertical;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.field input:hover,
+.field select:hover,
+.field textarea:hover {
+  border-color: #d7d7d4;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: #111111;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.06);
+  outline: none;
 }
 
 .field select {
@@ -490,10 +535,10 @@
 .tooltip-content {
   position: absolute;
   z-index: 50;
-  border: 1px solid #eaeaea;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
-  background: #111111;
-  color: #ffffff;
+  background: #1a1a1a;
+  color: #f5f5f4;
   font-size: 12px;
   line-height: 1.5;
   padding: 6px 10px;
@@ -502,6 +547,19 @@
   pointer-events: auto;
   user-select: text;
   max-width: 260px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: tooltip-enter 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tooltip-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 

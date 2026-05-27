@@ -648,16 +648,13 @@ fn normalize_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::ReconcileEnvironment;
-    use crate::db::INITIAL_SCHEMA;
+    use crate::db::CURRENT_SCHEMA;
     use crate::fs_links::{check_skill_link, create_skill_link, SkillLinkStatus};
     use crate::projects::{create_project, ProjectInput};
     use rusqlite::Connection;
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
-
-    const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
-        include_str!("../migrations/0002_project_only_refactor.sql");
 
     #[test]
     fn project_reconcile_links_enabled_project_skills_into_selected_cli_targets() {
@@ -1256,11 +1253,8 @@ mod tests {
             .pragma_update(None, "foreign_keys", "ON")
             .expect("foreign keys should enable");
         connection
-            .execute_batch(INITIAL_SCHEMA)
-            .expect("initial schema should apply");
-        connection
-            .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
-            .expect("project-only schema should apply");
+            .execute_batch(CURRENT_SCHEMA)
+            .expect("current schema should apply");
         connection
     }
 }

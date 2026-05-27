@@ -279,11 +279,8 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::db::INITIAL_SCHEMA;
+    use crate::db::CURRENT_SCHEMA;
     use crate::projects::{create_project, ProjectInput};
-
-    const PROJECT_ONLY_REFACTOR_SCHEMA: &str =
-        include_str!("../migrations/0002_project_only_refactor.sql");
 
     #[test]
     fn lists_available_and_selected_project_cli_targets() {
@@ -427,11 +424,8 @@ mod tests {
             .pragma_update(None, "foreign_keys", "ON")
             .expect("foreign keys should enable");
         connection
-            .execute_batch(INITIAL_SCHEMA)
-            .expect("initial schema should apply");
-        connection
-            .execute_batch(PROJECT_ONLY_REFACTOR_SCHEMA)
-            .expect("project-only schema should apply");
+            .execute_batch(CURRENT_SCHEMA)
+            .expect("current schema should apply");
         connection
     }
 

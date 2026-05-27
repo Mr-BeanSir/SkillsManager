@@ -1,11 +1,13 @@
-import { ArrowLeft, ArrowRight, ArrowSquareOut } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, ArrowSquareOut, Check, NotePencil } from "@phosphor-icons/react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
+import { FormDialog } from "../../../shared/components/FormDialog";
 import { listInstalledSkills, type InstalledSkill } from "../../skills/skillsApi";
 import {
   addSkillsToGroup,
   listSkillGroups,
   removeSkillFromGroup,
+  updateSkillGroup,
   type SkillGroup
 } from "../groupsApi";
 import styles from "../home/GroupsPage.module.css";
@@ -21,6 +23,7 @@ type GroupDetailPageProps = {
   onBack: () => void;
   onOpenProject: (projectId: string) => void;
   onSyncSkills: (skillIds: string[]) => Promise<void>;
+  onUpdateGroup: (name: string, description: string) => Promise<void>;
 };
 
 export function GroupDetailPage({
@@ -33,7 +36,8 @@ export function GroupDetailPage({
   isSaving,
   onBack,
   onOpenProject,
-  onSyncSkills
+  onSyncSkills,
+  onUpdateGroup
 }: GroupDetailPageProps) {
   const [draftSkillIds, setDraftSkillIds] = useState<string[]>(
     () => group?.skills.map((skill) => skill.id) ?? []
@@ -42,6 +46,9 @@ export function GroupDetailPage({
   const [selectedGroupSkillIds, setSelectedGroupSkillIds] = useState<string[]>([]);
   const [availableSearch, setAvailableSearch] = useState("");
   const [groupSearch, setGroupSearch] = useState("");
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   useEffect(() => {
     setDraftSkillIds(group?.skills.map((skill) => skill.id) ?? []);
@@ -148,6 +155,19 @@ export function GroupDetailPage({
     await onSyncSkills(draftSkillIds);
   }
 
+  function openEditDialog() {
+    if (!group) return;
+    setEditName(group.name);
+    setEditDescription(group.description);
+    setIsEditOpen(true);
+  }
+
+  async function handleUpdateGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onUpdateGroup(editName, editDescription);
+    setIsEditOpen(false);
+  }
+
   if (!group) {
     return (
       <section className="page-stack" aria-labelledby="group-detail-missing-title">
@@ -157,7 +177,7 @@ export function GroupDetailPage({
             <h1 id="group-detail-missing-title">
               {t(catalog, language, "groups.detail.missing.title")}
             </h1>
-            <p>{error ?? t(catalog, language, "groups.detail.missing.copy")}</p>
+            <p className={styles.detailCopy}>{error ?? t(catalog, language, "groups.detail.missing.copy")}</p>
           </div>
           <div className={styles.detailActions}>
             <button className="button button-secondary" onClick={onBack} type="button">
@@ -180,12 +200,16 @@ export function GroupDetailPage({
               name: group.name
             })}
           </h1>
-          <p>{t(catalog, language, "groups.detail.description")}</p>
+          <p className={styles.detailCopy}>{group.description || t(catalog, language, "groups.detail.noDescription")}</p>
         </div>
         <div className={styles.detailActions}>
           <button className="button button-secondary" onClick={onBack} type="button">
             <ArrowLeft size={16} weight="bold" aria-hidden="true" />
             {t(catalog, language, "groups.detail.back")}
+          </button>
+          <button className="button button-secondary" onClick={openEditDialog} type="button">
+            <NotePencil size={16} weight="bold" aria-hidden="true" />
+            {t(catalog, language, "groups.detail.editInfo")}
           </button>
         </div>
       </header>
@@ -440,6 +464,47 @@ export function GroupDetailPage({
           </div>
         )}
       </section>
+
+      {isEditOpen ? (
+        <FormDialog
+          cancelLabel={t(catalog, language, "groups.form.cancel")}
+          description={t(catalog, language, "groups.detail.editDescription")}
+          disabled={isSaving}
+          formClassName={styles.createModalForm}
+          submitIcon={<Check size={16} weight="bold" aria-hidden="true" />}
+          submitLabel={
+            isSaving
+              ? t(catalog, language, "groups.form.saving")
+              : t(catalog, language, "groups.detail.editSave")
+          }
+          title={t(catalog, language, "groups.detail.editTitle")}
+          onCancel={() => setIsEditOpen(false)}
+          onSubmit={handleUpdateGroup}
+        >
+          <label className="field">
+            <span>{t(catalog, language, "groups.form.name")}</span>
+            <input
+              autoComplete="off"
+              name="group-name"
+              onChange={(event) => setEditName(event.target.value)}
+              placeholder={t(catalog, language, "groups.form.namePlaceholder")}
+              required
+              value={editName}
+            />
+          </label>
+          <label className="field">
+            <span>{t(catalog, language, "groups.form.descriptionLabel")}</span>
+            <textarea
+              autoComplete="off"
+              name="group-description"
+              onChange={(event) => setEditDescription(event.target.value)}
+              placeholder={t(catalog, language, "groups.form.descriptionPlaceholder")}
+              rows={3}
+              value={editDescription}
+            />
+          </label>
+        </FormDialog>
+      ) : null}
     </section>
   );
 }
@@ -541,6 +606,28 @@ export function ConnectedGroupDetailPage({
     }
   }
 
+  async function handleUpdateGroup(name: string, description: string) {
+    if (!group) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const updated = await updateSkillGroup(group.id, { name, description });
+      setGroups((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item))
+      );
+      setStatus(t(catalog, language, "groups.detail.editSuccess"));
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   if (isLoading && !group) {
     return (
       <section className="page-stack" aria-labelledby="group-detail-loading-title">
@@ -571,6 +658,7 @@ export function ConnectedGroupDetailPage({
       onBack={onBack}
       onOpenProject={onOpenProject}
       onSyncSkills={handleSyncSkills}
+      onUpdateGroup={handleUpdateGroup}
       status={status}
     />
   );

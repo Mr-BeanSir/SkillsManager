@@ -1,8 +1,9 @@
-import { Check, NotePencil, Plus, Stack, Trash } from "@phosphor-icons/react";
+import { ArrowClockwise, Check, NotePencil, Plus, Stack, Trash } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
 import { ConfirmDialog } from "../../../shared/components/ConfirmDialog";
 import { FormDialog } from "../../../shared/components/FormDialog";
+import { message } from "../../../shared/components/message";
 import { readSettings } from "../../settings/settingsApi";
 import { findGroupById } from "./GroupsPage.model";
 import styles from "./GroupsPage.module.css";
@@ -10,6 +11,8 @@ import {
   createSkillGroup,
   deleteSkillGroup,
   listSkillGroups,
+  updateCollectionGroup,
+  type CollectionInstallProgress,
   type SkillGroup
 } from "../groupsApi";
 
@@ -30,6 +33,7 @@ export function GroupsPage({
 }: GroupsPageProps) {
   const [groups, setGroups] = useState<SkillGroup[]>(() => initialGroups ?? []);
   const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [pendingDeleteGroupId, setPendingDeleteGroupId] = useState<string | null>(
     initialDeleteGroupId ?? null
@@ -38,6 +42,8 @@ export function GroupsPage({
   const [status, setStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(initialGroups ? false : true);
   const [isSaving, setIsSaving] = useState(false);
+  const [updatingGroupId, setUpdatingGroupId] = useState<string | null>(null);
+  const [updateProgress, setUpdateProgress] = useState<CollectionInstallProgress | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const pendingDeleteGroup = findGroupById(groups, pendingDeleteGroupId);
@@ -108,9 +114,10 @@ export function GroupsPage({
     setStatus(null);
 
     try {
-      const created = await createSkillGroup({ name: groupName });
+      const created = await createSkillGroup({ name: groupName, description: groupDescription });
       setGroups((current) => [...current, created]);
       setGroupName("");
+      setGroupDescription("");
       setIsCreateOpen(false);
       setStatus(
         t(catalog, language, "groups.form.success", {
@@ -162,6 +169,35 @@ export function GroupsPage({
     }
   }
 
+  async function handleUpdateCollection(group: SkillGroup) {
+    setUpdatingGroupId(group.id);
+    setError(null);
+    setStatus(null);
+    setUpdateProgress(null);
+
+    try {
+      const updated = await updateCollectionGroup(group.id, (p) => setUpdateProgress(p));
+      setGroups((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item))
+      );
+      setStatus(
+        t(catalog, language, "groups.updateSuccess", {
+          name: updated.name
+        })
+      );
+      message.success(
+        t(catalog, language, "groups.updateSuccess", {
+          name: updated.name
+        })
+      );
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setUpdatingGroupId(null);
+      setUpdateProgress(null);
+    }
+  }
+
   return (
     <section className="page-stack" aria-labelledby="groups-title">
       <header className="topbar page-topbar">
@@ -209,6 +245,8 @@ export function GroupsPage({
             <thead>
               <tr>
                 <th scope="col">{t(catalog, language, "groups.table.name")}</th>
+                <th scope="col">{t(catalog, language, "groups.table.type")}</th>
+                <th scope="col">{t(catalog, language, "groups.table.version")}</th>
                 <th scope="col">{t(catalog, language, "groups.table.skills")}</th>
                 <th scope="col">{t(catalog, language, "groups.table.projects")}</th>
                 <th scope="col">{t(catalog, language, "groups.table.usage")}</th>
@@ -219,13 +257,13 @@ export function GroupsPage({
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6}>{t(catalog, language, "groups.loading")}</td>
+                  <td colSpan={8}>{t(catalog, language, "groups.loading")}</td>
                 </tr>
               ) : null}
 
               {!isLoading && groups.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={8}>
                     <div className="empty-state">
                       <Stack size={20} weight="bold" aria-hidden="true" />
                       <strong>{t(catalog, language, "groups.empty.title")}</strong>
@@ -246,6 +284,12 @@ export function GroupsPage({
                       {group.name}
                     </button>
                   </td>
+                  <td>
+                    <span className={`status-badge ${group.groupType === "collection" ? "status-global" : "status-custom"}`}>
+                      {t(catalog, language, group.groupType === "collection" ? "groups.type.collection" : "groups.type.manual")}
+                    </span>
+                  </td>
+                  <td>{group.version ?? "—"}</td>
                   <td className="number-cell">{group.skills.length}</td>
                   <td className="number-cell">{group.attachedProjectCount}</td>
                   <td>
@@ -268,6 +312,24 @@ export function GroupsPage({
                   <td>{formatDate(group.updatedAt)}</td>
                   <td>
                     <div className="row-actions">
+                      {group.groupType === "collection" ? (
+                        <button
+                          aria-label={t(catalog, language, "groups.action.update", {
+                            name: group.name
+                          })}
+                          className="icon-button"
+                          disabled={updatingGroupId === group.id}
+                          onClick={() => void handleUpdateCollection(group)}
+                          type="button"
+                        >
+                          <ArrowClockwise
+                            size={18}
+                            weight="bold"
+                            aria-hidden="true"
+                            className={updatingGroupId === group.id ? "spin" : undefined}
+                          />
+                        </button>
+                      ) : null}
                       <button
                         aria-label={t(catalog, language, "groups.action.open", {
                           name: group.name
@@ -337,7 +399,7 @@ export function GroupsPage({
               : t(catalog, language, "groups.form.create")
           }
           title={t(catalog, language, "groups.form.title")}
-          onCancel={() => setIsCreateOpen(false)}
+          onCancel={() => { setIsCreateOpen(false); setGroupDescription(""); }}
           onSubmit={handleCreateGroup}
         >
           <label className="field">
@@ -349,6 +411,17 @@ export function GroupsPage({
               placeholder={t(catalog, language, "groups.form.namePlaceholder")}
               required
               value={groupName}
+            />
+          </label>
+          <label className="field">
+            <span>{t(catalog, language, "groups.form.descriptionLabel")}</span>
+            <textarea
+              autoComplete="off"
+              name="group-description"
+              onChange={(event) => setGroupDescription(event.target.value)}
+              placeholder={t(catalog, language, "groups.form.descriptionPlaceholder")}
+              rows={3}
+              value={groupDescription}
             />
           </label>
         </FormDialog>

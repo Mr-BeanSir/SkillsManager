@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 
 export type GroupSkill = {
   id: string;
@@ -18,6 +18,11 @@ export type ProjectGroupUsage = {
 export type SkillGroup = {
   id: string;
   name: string;
+  groupType: string;
+  file: string | null;
+  description: string;
+  version: string | null;
+  totalSkills: number;
   skills: GroupSkill[];
   activeProjectCount: number;
   attachedProjectCount: number;
@@ -28,6 +33,7 @@ export type SkillGroup = {
 
 export type SkillGroupInput = {
   name: string;
+  description?: string;
 };
 
 export type ReconcileSummary = {
@@ -56,6 +62,14 @@ export function deleteSkillGroup(id: string) {
   }
 
   return invoke<void>("delete_skill_group_record", { id });
+}
+
+export function updateSkillGroup(id: string, input: SkillGroupInput) {
+  if (!isTauriRuntime()) {
+    return Promise.reject(new Error("Open the Tauri app to update skill groups."));
+  }
+
+  return invoke<SkillGroup>("update_skill_group_record", { id, input });
 }
 
 export function addSkillToGroup(groupId: string, skillId: string) {
@@ -94,6 +108,51 @@ export function reconcileProjectGroups() {
   }
 
   return invoke<ReconcileSummary>("reconcile_project_group_records");
+}
+
+export type CollectionInstallProgress = {
+  stage: string;
+  message: string;
+  current: number | null;
+  total: number | null;
+};
+
+export function installCollectionGroup(
+  file: string,
+  onProgress?: (progress: CollectionInstallProgress) => void
+): Promise<SkillGroup> {
+  if (!isTauriRuntime()) {
+    return Promise.reject(new Error("Open the Tauri app to install collections."));
+  }
+
+  const onProgressChannel = new Channel<CollectionInstallProgress>();
+  if (onProgress) {
+    onProgressChannel.onmessage = onProgress;
+  }
+
+  return invoke<SkillGroup>("install_collection_group_record", {
+    file,
+    onProgress: onProgressChannel,
+  });
+}
+
+export function updateCollectionGroup(
+  groupId: string,
+  onProgress?: (progress: CollectionInstallProgress) => void
+): Promise<SkillGroup> {
+  if (!isTauriRuntime()) {
+    return Promise.reject(new Error("Open the Tauri app to update collections."));
+  }
+
+  const onProgressChannel = new Channel<CollectionInstallProgress>();
+  if (onProgress) {
+    onProgressChannel.onmessage = onProgress;
+  }
+
+  return invoke<SkillGroup>("update_collection_group_record", {
+    groupId,
+    onProgress: onProgressChannel,
+  });
 }
 
 function isTauriRuntime() {

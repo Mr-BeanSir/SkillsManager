@@ -8,6 +8,11 @@ const groups: SkillGroup[] = [
   {
     id: "group-test",
     name: "test",
+    groupType: "manual",
+    file: null,
+    description: "",
+    version: null,
+    totalSkills: 0,
     skills: [],
     activeProjectCount: 0,
     attachedProjectCount: 0,

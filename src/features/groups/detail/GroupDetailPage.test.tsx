@@ -8,6 +8,11 @@ import { GroupDetailPage } from "./GroupDetailPage";
 const group: SkillGroup = {
   id: "group-repository-agents",
   name: "Repository Agents",
+  groupType: "manual",
+  file: null,
+  description: "",
+  version: null,
+  totalSkills: 1,
   skills: [
     {
       id: "skill-grill-with-docs",

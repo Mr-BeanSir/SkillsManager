@@ -1,0 +1,25 @@
+{
+  "changesets": [
+    {
+      "releases": [
+        {
+          "name": "skills-manager",
+          "type": "minor"
+        }
+      ],
+      "summary": "✨ 技能页面新增删除按钮，支持删除已安装技能及其软链接",
+      "id": "add-skill-delete"
+    }
+  ],
+  "releases": [
+    {
+      "name": "skills-manager",
+      "type": "minor",
+      "oldVersion": "0.5.0",
+      "changesets": [
+        "add-skill-delete"
+      ],
+      "newVersion": "0.6.0"
+    }
+  ]
+}
