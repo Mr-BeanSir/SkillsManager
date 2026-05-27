@@ -1,5 +1,16 @@
 # skills-manager
 
+## 0.7.0
+
+### Minor Changes
+
+- d3b1cc3: ✨ 新增集合(Collections)系统，支持从远程浏览、安装、更新技能集合；安装集合时自动创建对应分组；修复多行 YAML frontmatter 解析
+- 925b34e: ✨ 技能页面新增分组筛选功能，"来源"标签改为"仓库"；设置页面新增关闭操作选项，支持选择关闭窗口时直接退出或最小化到托盘
+
+### Patch Changes
+
+- ba7056f: 🩹 美化弹窗、表单、提示框等共享组件，优化分组详情页布局和 topbar 样式
+
 ## 0.6.0
 
 ### Minor Changes
