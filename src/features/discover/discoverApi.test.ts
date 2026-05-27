@@ -36,7 +36,7 @@ describe("discoverApi", () => {
   });
 
   test("uses discover entries without the search tab and keeps all first", () => {
-    expect(discoverEntries).toEqual(["all", "trending", "hot"]);
+    expect(discoverEntries).toEqual(["all", "trending", "hot", "collections"]);
   });
 
   test("filters search results by query before paginating", async () => {
