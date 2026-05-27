@@ -80,6 +80,7 @@ describe("GroupDetailPage", () => {
         onBack={() => undefined}
         onOpenProject={() => undefined}
         onSyncSkills={() => Promise.resolve()}
+        onUpdateGroup={() => Promise.resolve()}
         status={null}
       />
     );

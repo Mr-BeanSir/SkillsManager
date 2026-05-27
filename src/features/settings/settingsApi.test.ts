@@ -35,6 +35,7 @@ describe("settingsApi", () => {
   test("returns the default project-only settings outside the Tauri runtime", async () => {
     await expect(readSettings()).resolves.toEqual({
       autoReconcile: true,
+      closeToTray: true,
       discoverPageSize: 25,
       launchAtStartup: false,
       silentStart: false
@@ -58,30 +59,35 @@ describe("settingsApi", () => {
     invokeMock
       .mockResolvedValueOnce({
         autoReconcile: true,
+        closeToTray: true,
         discoverPageSize: 25,
         launchAtStartup: false,
         silentStart: false
       } satisfies SettingsRecord)
       .mockResolvedValueOnce({
         autoReconcile: false,
+        closeToTray: true,
         discoverPageSize: 25,
         launchAtStartup: false,
         silentStart: false
       } satisfies SettingsRecord)
       .mockResolvedValueOnce({
         autoReconcile: false,
+        closeToTray: true,
         discoverPageSize: 50,
         launchAtStartup: true,
         silentStart: false
       } satisfies SettingsRecord)
       .mockResolvedValueOnce({
         autoReconcile: false,
+        closeToTray: true,
         discoverPageSize: 50,
         launchAtStartup: true,
         silentStart: false
       } satisfies SettingsRecord)
       .mockResolvedValueOnce({
         autoReconcile: false,
+        closeToTray: true,
         discoverPageSize: 50,
         launchAtStartup: true,
         silentStart: true
