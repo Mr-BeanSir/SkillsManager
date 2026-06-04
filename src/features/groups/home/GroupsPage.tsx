@@ -1,4 +1,4 @@
-import { ArrowClockwise, Check, NotePencil, Plus, Stack, Trash } from "@phosphor-icons/react";
+import { ArrowClockwise, Check, Export, FolderOpen, NotePencil, Plus, Stack, Trash } from "@phosphor-icons/react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { I18nCatalog, LanguageCode, t } from "../../../app/i18n";
 import { ConfirmDialog } from "../../../shared/components/ConfirmDialog";
@@ -10,6 +10,7 @@ import styles from "./GroupsPage.module.css";
 import {
   createSkillGroup,
   deleteSkillGroup,
+  exportGroupToJSON,
   listSkillGroups,
   updateCollectionGroup,
   type CollectionInstallProgress,
@@ -47,6 +48,14 @@ export function GroupsPage({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const pendingDeleteGroup = findGroupById(groups, pendingDeleteGroupId);
+
+  // Export state
+  const [exportingGroup, setExportingGroup] = useState<SkillGroup | null>(null);
+  const [exportFileName, setExportFileName] = useState("");
+  const [exportTitle, setExportTitle] = useState("");
+  const [exportDescription, setExportDescription] = useState("");
+  const [exportPath, setExportPath] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(groups.length / pageSize));
   const clampedPage = Math.min(currentPage, totalPages);
@@ -198,6 +207,67 @@ export function GroupsPage({
     }
   }
 
+  function openExportModal(group: SkillGroup) {
+    setExportingGroup(group);
+    setExportFileName(group.name);
+    setExportTitle(group.name);
+    setExportDescription(group.description || "");
+    setExportPath("");
+  }
+
+  function closeExportModal() {
+    if (isExporting) return;
+    setExportingGroup(null);
+    setExportFileName("");
+    setExportTitle("");
+    setExportDescription("");
+    setExportPath("");
+  }
+
+  async function handleSelectExportPath() {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        directory: true,
+        multiple: false
+      });
+      if (selected) {
+        setExportPath(selected as string);
+      }
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  async function handleExport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!exportingGroup || !exportPath || !exportFileName.trim()) return;
+
+    setIsExporting(true);
+    setError(null);
+
+    try {
+      const result = await exportGroupToJSON({
+        groupId: exportingGroup.id,
+        fileName: exportFileName.trim(),
+        title: exportTitle,
+        description: exportDescription,
+        exportPath: exportPath
+      });
+
+      message.success(
+        t(catalog, language, "groups.export.success", {
+          path: result.filePath
+        })
+      );
+      closeExportModal();
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   return (
     <section className="page-stack" aria-labelledby="groups-title">
       <header className="topbar page-topbar">
@@ -248,7 +318,6 @@ export function GroupsPage({
                 <th scope="col">{t(catalog, language, "groups.table.type")}</th>
                 <th scope="col">{t(catalog, language, "groups.table.version")}</th>
                 <th scope="col">{t(catalog, language, "groups.table.skills")}</th>
-                <th scope="col">{t(catalog, language, "groups.table.projects")}</th>
                 <th scope="col">{t(catalog, language, "groups.table.usage")}</th>
                 <th scope="col">{t(catalog, language, "groups.table.updated")}</th>
                 <th scope="col">{t(catalog, language, "groups.table.actions")}</th>
@@ -257,13 +326,13 @@ export function GroupsPage({
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8}>{t(catalog, language, "groups.loading")}</td>
+                  <td colSpan={7}>{t(catalog, language, "groups.loading")}</td>
                 </tr>
               ) : null}
 
               {!isLoading && groups.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={7}>
                     <div className="empty-state">
                       <Stack size={20} weight="bold" aria-hidden="true" />
                       <strong>{t(catalog, language, "groups.empty.title")}</strong>
@@ -291,7 +360,6 @@ export function GroupsPage({
                   </td>
                   <td>{group.version ?? "—"}</td>
                   <td className="number-cell">{group.skills.length}</td>
-                  <td className="number-cell">{group.attachedProjectCount}</td>
                   <td>
                     {group.activeProjectCount > 0 ? (
                       <span className="status-badge status-current">
@@ -339,6 +407,16 @@ export function GroupsPage({
                         type="button"
                       >
                         <NotePencil size={18} weight="bold" aria-hidden="true" />
+                      </button>
+                      <button
+                        aria-label={t(catalog, language, "groups.action.export", {
+                          name: group.name
+                        })}
+                        className="icon-button"
+                        onClick={() => openExportModal(group)}
+                        type="button"
+                      >
+                        <Export size={18} weight="bold" aria-hidden="true" />
                       </button>
                       <button
                         aria-label={t(catalog, language, "groups.action.delete", {
@@ -441,6 +519,82 @@ export function GroupsPage({
           onCancel={closeDeleteDialog}
           onConfirm={() => void confirmDeleteGroup()}
         />
+      ) : null}
+
+      {exportingGroup ? (
+        <FormDialog
+          cancelLabel={t(catalog, language, "groups.form.cancel")}
+          closeLabel={t(catalog, language, "groups.export.close")}
+          description={t(catalog, language, "groups.export.description")}
+          disabled={isExporting}
+          formClassName={styles.exportForm}
+          submitIcon={<Export size={16} weight="bold" aria-hidden="true" />}
+          submitLabel={
+            isExporting
+              ? t(catalog, language, "groups.export.exporting")
+              : t(catalog, language, "groups.export.submit")
+          }
+          title={t(catalog, language, "groups.export.title")}
+          onCancel={closeExportModal}
+          onSubmit={handleExport}
+        >
+          <div className={styles.exportFormMeta}>
+            <label className="field">
+              <span>{t(catalog, language, "groups.export.fileName")}</span>
+              <input
+                autoComplete="off"
+                name="export-file-name"
+                onChange={(event) => setExportFileName(event.target.value)}
+                placeholder={t(catalog, language, "groups.export.fileNamePlaceholder")}
+                required
+                value={exportFileName}
+              />
+            </label>
+            <label className="field">
+              <span>{t(catalog, language, "groups.export.title")}</span>
+              <input
+                autoComplete="off"
+                name="export-title"
+                onChange={(event) => setExportTitle(event.target.value)}
+                placeholder={t(catalog, language, "groups.export.titlePlaceholder")}
+                value={exportTitle}
+              />
+            </label>
+          </div>
+          <label className="field">
+            <span>{t(catalog, language, "groups.export.descriptionLabel")}</span>
+            <textarea
+              autoComplete="off"
+              name="export-description"
+              onChange={(event) => setExportDescription(event.target.value)}
+              placeholder={t(catalog, language, "groups.export.descriptionPlaceholder")}
+              rows={3}
+              value={exportDescription}
+            />
+          </label>
+          <div className={styles.exportFormDest}>
+            <label className="field">
+              <span>{t(catalog, language, "groups.export.path")}</span>
+              <div className={styles.fileInputRow}>
+                <input
+                  autoComplete="off"
+                  name="export-path"
+                  onChange={(event) => setExportPath(event.target.value)}
+                  placeholder={t(catalog, language, "groups.export.pathPlaceholder")}
+                  required
+                  value={exportPath}
+                />
+                <button
+                  className="button button-secondary"
+                  onClick={() => void handleSelectExportPath()}
+                  type="button"
+                >
+                  <FolderOpen size={16} weight="bold" aria-hidden="true" />
+                </button>
+              </div>
+            </label>
+          </div>
+        </FormDialog>
       ) : null}
     </section>
   );

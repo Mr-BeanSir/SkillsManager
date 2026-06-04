@@ -117,6 +117,18 @@ export type CollectionInstallProgress = {
   total: number | null;
 };
 
+export type ExportGroupInput = {
+  groupId: string;
+  fileName: string;
+  title: string;
+  description: string;
+  exportPath: string;
+};
+
+export type ExportGroupResult = {
+  filePath: string;
+};
+
 export function installCollectionGroup(
   file: string,
   onProgress?: (progress: CollectionInstallProgress) => void
@@ -153,6 +165,14 @@ export function updateCollectionGroup(
     groupId,
     onProgress: onProgressChannel,
   });
+}
+
+export function exportGroupToJSON(input: ExportGroupInput): Promise<ExportGroupResult> {
+  if (!isTauriRuntime()) {
+    return Promise.reject(new Error("Open the Tauri app to export groups."));
+  }
+
+  return invoke<ExportGroupResult>("export_group_to_json", { input });
 }
 
 function isTauriRuntime() {

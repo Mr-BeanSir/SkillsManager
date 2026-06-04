@@ -284,6 +284,7 @@
   "groups.empty.copy": "先创建一个可复用分组，再去 Projects 页面挂接到具体项目。",
   "groups.pagination.label": "分组分页",
   "groups.action.open": "进入分组",
+  "groups.action.export": "导出 {name}",
   "groups.action.delete": "删除 {name}",
   "groups.detail.back": "返回分组列表",
   "groups.detail.loading": "正在加载分组详情…",
@@ -580,5 +581,18 @@
   "collections.table.description-col": "描述",
   "collections.table.version": "版本",
   "collections.table.totalSkills": "技能总数",
-  "collections.table.actions": "操作"
+  "collections.table.actions": "操作",
+  "groups.export.title": "导出分组",
+  "groups.export.close": "关闭导出弹框",
+  "groups.export.description": "将分组中的技能导出为 JSON 文件。",
+  "groups.export.fileName": "导出文件名",
+  "groups.export.fileNamePlaceholder": "my-skills",
+  "groups.export.titlePlaceholder": "分组标题",
+  "groups.export.descriptionLabel": "分组描述",
+  "groups.export.descriptionPlaceholder": "描述这个分组的用途…",
+  "groups.export.path": "导出地址",
+  "groups.export.pathPlaceholder": "选择导出文件夹…",
+  "groups.export.submit": "导出",
+  "groups.export.exporting": "正在导出…",
+  "groups.export.success": "已导出到 {path}"
 }

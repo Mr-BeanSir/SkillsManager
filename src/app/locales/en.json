@@ -284,6 +284,7 @@
   "groups.empty.copy": "Create a reusable group, then attach it from the Projects page.",
   "groups.pagination.label": "Groups pagination",
   "groups.action.open": "Open Group",
+  "groups.action.export": "Export {name}",
   "groups.action.delete": "Delete {name}",
   "groups.detail.back": "Back to Groups",
   "groups.detail.loading": "Loading group detail…",
@@ -580,5 +581,18 @@
   "collections.table.description-col": "Description",
   "collections.table.version": "Version",
   "collections.table.totalSkills": "Total Skills",
-  "collections.table.actions": "Actions"
+  "collections.table.actions": "Actions",
+  "groups.export.title": "Export Group",
+  "groups.export.close": "Close export dialog",
+  "groups.export.description": "Export skills in this group as a JSON file.",
+  "groups.export.fileName": "File Name",
+  "groups.export.fileNamePlaceholder": "my-skills",
+  "groups.export.titlePlaceholder": "Group title",
+  "groups.export.descriptionLabel": "Description",
+  "groups.export.descriptionPlaceholder": "Describe the purpose of this group…",
+  "groups.export.path": "Export Path",
+  "groups.export.pathPlaceholder": "Select export folder…",
+  "groups.export.submit": "Export",
+  "groups.export.exporting": "Exporting…",
+  "groups.export.success": "Exported to {path}"
 }

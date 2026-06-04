@@ -71,6 +71,8 @@ pub enum SkillGroupError {
     Reconcile(#[from] crate::reconcile::ReconcileError),
     #[error("repository source error: {0}")]
     RepositorySource(String),
+    #[error("filesystem error: {0}")]
+    Filesystem(#[from] std::io::Error),
 }
 
 pub fn list_skill_groups(connection: &Connection) -> Result<Vec<SkillGroup>, SkillGroupError> {
@@ -795,6 +797,61 @@ pub async fn update_collection_group_record(
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportGroupInput {
+    pub group_id: String,
+    pub file_name: String,
+    pub title: String,
+    pub description: String,
+    pub export_path: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportGroupResult {
+    pub file_path: String,
+}
+
+#[tauri::command]
+pub fn export_group_to_json(input: ExportGroupInput) -> Result<ExportGroupResult, String> {
+    let database_path = crate::app_paths::database_path().map_err(|error| error.to_string())?;
+    let connection = crate::db::open_database(database_path).map_err(|error| error.to_string())?;
+
+    let group = get_skill_group(&connection, &input.group_id).map_err(|error| error.to_string())?;
+
+    let export_data = serde_json::json!({
+        "title": input.title,
+        "description": input.description,
+        "version": group.version.unwrap_or_else(|| "0.0.1".to_string()),
+        "skills": group.skills.iter().map(|skill| {
+            serde_json::json!({
+                "name": skill.name,
+                "description": "",
+                "source_type": skill.source_type,
+                "source_ref": skill.source_ref
+            })
+        }).collect::<Vec<_>>()
+    });
+
+    let export_path = std::path::Path::new(&input.export_path);
+    let file_name = if input.file_name.ends_with(".json") {
+        input.file_name
+    } else {
+        format!("{}.json", input.file_name)
+    };
+    let file_path = export_path.join(&file_name);
+
+    let json_string = serde_json::to_string_pretty(&export_data)
+        .map_err(|error| error.to_string())?;
+
+    std::fs::write(&file_path, json_string).map_err(|error| error.to_string())?;
+
+    Ok(ExportGroupResult {
+        file_path: file_path.to_string_lossy().into_owned(),
+    })
 }
 
 #[cfg(test)]

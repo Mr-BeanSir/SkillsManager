@@ -158,6 +158,7 @@ pub fn run() {
             skill_groups::remove_skill_from_group_record,
             skill_groups::install_collection_group_record,
             skill_groups::update_collection_group_record,
+            skill_groups::export_group_to_json,
             skill_files::get_skill_detail,
             skill_files::read_skill_file,
             skill_files::write_skill_file,
